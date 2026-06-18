@@ -4,29 +4,23 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { spawnSync } from "child_process";
-import { readFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { readFileSync, existsSync, mkdirSync, rmSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { tmpdir } from "os";
+import { spawnSync } from "child_process";
+
+import { STYLES, PALETTES, ARCHETYPES, HYBRIDS, buildSingle, buildHybrid, buildRulesJson } from "./rules.js";
+import { fetchPalettes } from "./palette.js";
+import { convertPalette, type ConvertTarget } from "./palette-convert.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MCP_ROOT = join(__dirname, "..");
 
-// Canonical: skills live inside this repo under skills/
-// Override via env vars if needed (e.g. during development)
 const SKILL_PATH =
   process.env.UI_DESIGNER_SKILL_PATH ??
   join(MCP_ROOT, "skills/ui-designer");
-const PALETTE_PATH =
-  process.env.COLOR_PALETTE_HUNTER_PATH ??
-  join(MCP_ROOT, "skills/color-palette-hunter");
 
-const APPLY_RULES_PY = join(SKILL_PATH, "scripts/apply_ui_rules.py");
-const FETCH_PALETTE_PY = join(PALETTE_PATH, "scripts/fetch-palette.py");
-const PALETTE_TO_DESIGN_PY = join(PALETTE_PATH, "scripts/palette-to-design.py");
-
-// Brand catalog — mirrors references/getdesign-md.md
 const BRAND_CATALOG: Record<string, string[]> = {
   "productivity-saas": ["notion", "airtable", "cal", "superhuman", "miro", "intercom", "zapier", "linear.app"],
   "developer-tools": ["vercel", "supabase", "cursor", "raycast", "warp", "posthog", "sentry", "hashicorp", "expo", "sanity", "mintlify", "framer", "figma", "webflow", "clickhouse", "mongodb", "ibm", "opencode.ai"],
@@ -39,23 +33,8 @@ const BRAND_CATALOG: Record<string, string[]> = {
   "legacy-archival": ["apple", "dell-1996", "hp", "nintendo-2001"],
 };
 
-function runPython(script: string, args: string[]): string {
-  const result = spawnSync("python3", [script, ...args], {
-    encoding: "utf8",
-    timeout: 30000,
-  });
-  if (result.status !== 0) {
-    throw new Error(result.stderr || `python3 exited with code ${result.status}`);
-  }
-  return result.stdout;
-}
-
 function runCommand(cmd: string, args: string[], cwd?: string): string {
-  const result = spawnSync(cmd, args, {
-    encoding: "utf8",
-    timeout: 60000,
-    cwd,
-  });
+  const result = spawnSync(cmd, args, { encoding: "utf8", timeout: 60000, cwd });
   if (result.status !== 0) {
     throw new Error(result.stderr || `${cmd} exited with code ${result.status}`);
   }
@@ -173,27 +152,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { style, palette, archetype, hybrid, tailwind } = args as {
           style: string; palette: string; archetype?: string; hybrid?: string; tailwind?: boolean;
         };
-        const pyArgs = ["--style", style, "--palette", palette, "--json"];
-        if (archetype) pyArgs.push("--archetype", archetype);
-        if (hybrid) pyArgs.push("--hybrid", hybrid);
-        if (tailwind) pyArgs.push("--tailwind");
-        const output = runPython(APPLY_RULES_PY, pyArgs);
-        return { content: [{ type: "text", text: output }] };
+        const content = hybrid
+          ? buildHybrid(style, hybrid, palette, archetype)
+          : buildSingle(style, palette, archetype, tailwind);
+        const result = buildRulesJson({
+          style, palette, archetype,
+          hybrid: hybrid ? `${style}+${hybrid}` : undefined,
+          content,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       case "list_options": {
-        const output = runPython(APPLY_RULES_PY, ["--list", "--json"]);
-        return { content: [{ type: "text", text: output }] };
+        const result = buildRulesJson({});
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       case "validate_combo": {
         const { style, palette, hybrid } = args as {
           style: string; palette: string; hybrid?: string;
         };
-        const pyArgs = ["--style", style, "--palette", palette, "--validate", "--json"];
-        if (hybrid) pyArgs.push("--hybrid", hybrid);
-        const output = runPython(APPLY_RULES_PY, pyArgs);
-        return { content: [{ type: "text", text: output }] };
+        const styleOk = style in STYLES;
+        const paletteOk = palette in PALETTES;
+        const hybridOk = hybrid ? `${style}+${hybrid}` in HYBRIDS : true;
+        const valid = styleOk && paletteOk && hybridOk;
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              valid,
+              style: styleOk ? style : `unknown: ${style}`,
+              palette: paletteOk ? palette : `unknown: ${palette}`,
+              hybrid: hybrid ? (hybridOk ? `${style}+${hybrid}` : `unknown combo: ${style}+${hybrid}`) : null,
+            }),
+          }],
+        };
       }
 
       case "get_reference": {
@@ -210,23 +203,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { mode, theme, query, limit = 5, format = "json" } = args as {
           mode: string; theme?: string; query?: string; limit?: number; format?: string;
         };
-        const pyArgs = [`--${mode}`, "--limit", String(limit), "--format", format];
-        if (theme) pyArgs.push("--theme", theme);
-        if (query) pyArgs.push("--query", query);
-        const output = runPython(FETCH_PALETTE_PY, pyArgs);
+        const paletteMode = mode === "theme" ? "theme" : mode === "query" ? "query" : mode;
+        const data = await fetchPalettes(paletteMode, { theme, query, limit });
+        let output: string;
+        if (format === "json") {
+          output = JSON.stringify(data, null, 2);
+        } else {
+          output = convertPalette(data, format as ConvertTarget);
+        }
         return { content: [{ type: "text", text: output }] };
       }
 
       case "palette_convert": {
         const { palettes, target } = args as { palettes: unknown[]; target: string };
-        const tmp = join(tmpdir(), `palette-${Date.now()}.json`);
-        try {
-          writeFileSync(tmp, JSON.stringify(palettes), "utf8");
-          const output = runPython(PALETTE_TO_DESIGN_PY, ["--input", tmp, "--format", target]);
-          return { content: [{ type: "text", text: output }] };
-        } finally {
-          if (existsSync(tmp)) rmSync(tmp);
-        }
+        const data = { palettes } as import("./palette.js").PaletteData;
+        const output = convertPalette(data, target as ConvertTarget);
+        return { content: [{ type: "text", text: output }] };
       }
 
       case "brand_fetch_design_md": {

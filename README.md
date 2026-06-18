@@ -53,7 +53,6 @@ npm run build
 ### Requirements
 
 - Node.js >= 18
-- Python 3 (for palette and design rules scripts)
 
 ## Usage
 
@@ -77,14 +76,25 @@ npm run build   # Build the TypeScript project
 npm start       # Start the MCP server
 ```
 
+## Architecture
+
+All tooling is implemented in TypeScript within the MCP server. The `skills/` directories are git submodules kept for reference and standalone script usage, but the MCP does not shell out to them at runtime.
+
+```
+src/
+  index.ts            # MCP server entry, tool routing
+  rules.ts            # Design systems, palettes, archetypes, hybrids, rule generation
+  palette.ts          # Color Hunt palette fetcher with caching
+  palette-convert.ts  # Format converter (CSS, Tailwind, SCSS, Figma, Android, Swift)
+```
+
 ## Configuration
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `UI_DESIGNER_SKILL_PATH` | `skills/ui-designer` | Path to the ui-designer skill directory |
-| `COLOR_PALETTE_HUNTER_PATH` | `skills/color-palette-hunter` | Path to the color-palette-hunter skill directory |
+| `UI_DESIGNER_SKILL_PATH` | `skills/ui-designer` | Path to the ui-designer skill references directory |
 
 ## Configuring with AI Assistants
 
