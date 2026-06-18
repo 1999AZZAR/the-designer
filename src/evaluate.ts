@@ -95,7 +95,7 @@ function buildWorkflow(recommended: string, palette: string, archetype: string):
     `PHASE 1: WIREFRAME`,
     `  - validate_combo — style="${recommended}", palette="${palette}" → confirm valid`,
     `  - brand_fetch_design_md — pull reference for relevant brands (if applicable)`,
-    `  - generate_rules — style="${recommended}", palette="${palette}", archetype="${archetype}" → get design rules`,
+    `  - generate_rules — style="${recommended}", palette="${palette}", archetype="${archetype}" → get design rules (inc. Good Design criteria)`,
     `PHASE 2: PROTOTYPE`,
     `  - get_reference — pull deep-dive docs (accessibility, tokens, etc.) as needed`,
     `  - generate_template — style="${recommended}", palette="${palette}", archetype="${archetype}" → starter HTML`,
@@ -103,6 +103,7 @@ function buildWorkflow(recommended: string, palette: string, archetype: string):
     `PHASE 3: TEST`,
     `  - export_project — full scaffold when ready to ship`,
     `  - Use cross-cutting rules to validate accessibility and responsive behavior`,
+    `  - SELF-CHECK: Avoid beginner mistakes (complexity, color-overload, aesthetic > usability)`,
   ];
 }
 

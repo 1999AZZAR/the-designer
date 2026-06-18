@@ -404,12 +404,23 @@ const BASE_RULES = `# AI Design Rules
 4. **Purposeful and Relevant**: Only include elements that serve a specific user goal.
 5. **Adaptable and Responsive**: Design must work seamlessly across all screen sizes and orientations.
 
-## UX Principles
-1. **Intuitive and User-Friendly**: Design for how users think, making interactions feel natural.
-2. **Easy to Learn and Use**: Minimize cognitive load by using familiar patterns and clear navigation.
-3. **Consistent around the UI**: Maintain behavior and visual expectations across all surfaces.
-4. **Accessible and Inclusive**: Ensure the design works for everyone, regardless of ability or context.
-5. **Efficient and Effective**: Optimize for task completion speed and accuracy.
+## What Makes a Good Design?
+1. **Emphasis**: Highlight the most important elements to guide user attention.
+2. **Alignment and Balance**: Ensure a stable, professional look through mathematical or visual grid alignment.
+3. **Contrast**: Use value, color, and size to create clear distinctions between elements.
+4. **Consistency and Repetition**: Replicate patterns and styles to build familiarity and speed.
+5. **White Space**: Use empty space to let the design breathe and prevent cognitive overload.
+6. **Hierarchy**: Establish a clear path for the eye to follow, from most to least important.
+7. **Unity and Cohesion**: Ensure all parts feel like they belong to a single, purposeful system.
+
+## Beginner Mistakes (DO NOT DO)
+- **Not following the design flow**: Skipping wireframes or testing leads to structural failure.
+- **Too much complexity/detail**: Over-designing components makes them hard to maintain and use.
+- **Too much color**: Excessive palettes distract from the functional hierarchy.
+- **No visual hierarchy**: If everything is loud, nothing is heard.
+- **No clear purpose**: Every pixel must justify its existence in service of a user goal.
+- **Poor usability and spacing**: Cramped or illogical layouts frustrate users.
+- **Prioritizing aesthetic over usability**: A "cool" design that is unusable is a failed design.
 `;
 
 function formatSection(title: string, items: string[]): string {
