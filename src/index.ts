@@ -10,9 +10,14 @@ import { fileURLToPath } from "url";
 import { tmpdir } from "os";
 import { spawnSync } from "child_process";
 
-import { STYLES, PALETTES, ARCHETYPES, HYBRIDS, buildSingle, buildHybrid, buildRulesJson } from "./rules.js";
+import { STYLES, PALETTES, ARCHETYPES, HYBRIDS, CROSS_CUTTING, buildSingle, buildHybrid, buildRulesJson } from "./rules.js";
 import { fetchPalettes } from "./palette.js";
 import { convertPalette, type ConvertTarget } from "./palette-convert.js";
+import { generateTailwindConfig } from "./tailwind-config.js";
+import { generateTemplate } from "./templates.js";
+import { getComponent, COMPONENT_TYPES } from "./components.js";
+import { generatePaletteVariants } from "./palette-variants.js";
+import { exportProject } from "./export.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MCP_ROOT = join(__dirname, "..");
@@ -20,6 +25,50 @@ const MCP_ROOT = join(__dirname, "..");
 const SKILL_PATH =
   process.env.UI_DESIGNER_SKILL_PATH ??
   join(MCP_ROOT, "skills/ui-designer");
+
+const PALETTE_SKILL_PATH =
+  process.env.COLOR_PALETTE_HUNTER_PATH ??
+  join(MCP_ROOT, "skills/color-palette-hunter");
+
+function detectInstalledSkills(): Array<{ name: string; path: string; description: string; tools: string[] }> {
+  const skills: Array<{ name: string; path: string; description: string; tools: string[] }> = [];
+
+  const uiDesignerMd = join(SKILL_PATH, "SKILL.md");
+  if (existsSync(uiDesignerMd)) {
+    const refDir = join(SKILL_PATH, "references");
+    const refCount = existsSync(refDir)
+      ? require("fs").readdirSync(refDir).filter((f: string) => f.endsWith(".md")).length
+      : 0;
+    skills.push({
+      name: "ui-designer",
+      path: SKILL_PATH,
+      description: "Design system selection, theming, brand cloning, component patterns, reference docs",
+      tools: [
+        `get_reference (${refCount} reference docs available)`,
+        "generate_rules", "list_options", "validate_combo",
+        "generate_tailwind_config", "generate_template", "get_component",
+        "export_project",
+      ],
+    });
+  }
+
+  const paletteMd = join(PALETTE_SKILL_PATH, "SKILL.md");
+  if (existsSync(paletteMd)) {
+    skills.push({
+      name: "color-palette-hunter",
+      path: PALETTE_SKILL_PATH,
+      description: "Live palette fetching from Color Hunt, format conversion, standalone shell/Python scripts",
+      tools: [
+        "palette_fetch (native API)",
+        "palette_convert",
+        "scripts/fetch-palette.sh (standalone CLI)",
+        "scripts/palette-to-design.py (standalone CLI)",
+      ],
+    });
+  }
+
+  return skills;
+}
 
 const BRAND_CATALOG: Record<string, string[]> = {
   "productivity-saas": ["notion", "airtable", "cal", "superhuman", "miro", "intercom", "zapier", "linear.app"],
@@ -131,6 +180,84 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "generate_tailwind_config",
+      description: "Generate a ready-to-use tailwind.config.js for a design style + palette combination. Returns the full config object and module.exports code string.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          style: { type: "string", description: "Design system: ant|carbon|fluent|atlassian|apple-hig|polaris|material|minimal|glass|neumorphism|neo-brutalism|claymorphism|skeuomorphism|swiss|swiss-archival|m3-pastel|neo-m3" },
+          palette: { type: "string", description: "Color palette: pastel|dark|vibrant|mono" },
+        },
+        required: ["style", "palette"],
+      },
+    },
+    {
+      name: "generate_template",
+      description: "Generate a full HTML starter page for a style + palette + archetype combination. Returns a complete standalone HTML file with Tailwind CDN, styled components, and responsive layout.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          style: { type: "string", description: "Design system: ant|carbon|fluent|atlassian|apple-hig|polaris|material|minimal|glass|neumorphism|neo-brutalism|claymorphism|skeuomorphism|swiss|swiss-archival|m3-pastel|neo-m3" },
+          palette: { type: "string", description: "Color palette: pastel|dark|vibrant|mono" },
+          archetype: { type: "string", description: "Page archetype: dashboard|settings|table-detail|marketing-hero|editorial-landing" },
+        },
+        required: ["style", "palette", "archetype"],
+      },
+    },
+    {
+      name: "get_component",
+      description: "Get a production-ready HTML/Tailwind component snippet styled for a specific design system. Components: button, card, navbar, hero, form-input, badge, modal, sidebar, table, footer.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          component: { type: "string", enum: ["button", "card", "navbar", "hero", "form-input", "badge", "modal", "sidebar", "table", "footer"], description: "Component type" },
+          style: { type: "string", description: "Design system: ant|carbon|fluent|atlassian|apple-hig|polaris|material|minimal|glass|neumorphism|neo-brutalism|claymorphism|skeuomorphism|swiss|swiss-archival|m3-pastel|neo-m3" },
+        },
+        required: ["component", "style"],
+      },
+    },
+    {
+      name: "get_cross_cutting_rules",
+      description: "Get standalone cross-cutting design rules by category. Categories: icons, accessibility, motion, tokens, responsive, tailwind. Returns the rules as a formatted string.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          category: { type: "string", enum: ["icons", "accessibility", "motion", "tokens", "responsive", "tailwind"], description: "Cross-cutting rule category" },
+        },
+        required: ["category"],
+      },
+    },
+    {
+      name: "generate_palette_variants",
+      description: "Generate light, dark, high-contrast, muted, and vivid variants from a set of hex colors. Useful for theming and responsive color systems.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          colors: { type: "array", items: { type: "string" }, description: "Array of hex color strings, e.g. [\"#3b82f6\", \"#8b5cf6\"]" },
+        },
+        required: ["colors"],
+      },
+    },
+    {
+      name: "export_project",
+      description: "Export a complete project scaffold: tailwind.config.js, index.html, input.css, package.json, and component files. Returns all files as a structured manifest ready to write to disk.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          style: { type: "string", description: "Design system: ant|carbon|fluent|atlassian|apple-hig|polaris|material|minimal|glass|neumorphism|neo-brutalism|claymorphism|skeuomorphism|swiss|swiss-archival|m3-pastel|neo-m3" },
+          palette: { type: "string", description: "Color palette: pastel|dark|vibrant|mono" },
+          archetype: { type: "string", description: "Page archetype: dashboard|settings|table-detail|marketing-hero|editorial-landing" },
+          projectName: { type: "string", description: "Project name (default: my-project)" },
+        },
+        required: ["style", "palette", "archetype"],
+      },
+    },
+    {
+      name: "list_installed_skills",
+      description: "Detect and list all installed skill submodules alongside this MCP. Shows which skills are available for standalone use and what capabilities they provide.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
       name: "brand_list",
       description: "List all 328+ supported brands grouped by category.",
       inputSchema: {
@@ -236,6 +363,73 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } finally {
           rmSync(tmp, { recursive: true, force: true });
         }
+      }
+
+      case "list_installed_skills": {
+        const skills = detectInstalledSkills();
+        return {
+          content: [{
+            type: "text",
+            text: skills.length
+              ? JSON.stringify({
+                  message: `${skills.length} skill(s) detected alongside this MCP`,
+                  skills,
+                  note: "Skills work standalone via their own CLIs. When this MCP is installed, both systems coexist — use MCP tools for programmatic access, skill scripts for standalone CLI usage.",
+                }, null, 2)
+              : JSON.stringify({ message: "No skills detected. Install skills as git submodules in skills/ directory.", skills: [] }, null, 2),
+          }],
+        };
+      }
+
+      case "export_project": {
+        const { style, palette, archetype, projectName } = args as {
+          style: string; palette: string; archetype: string; projectName?: string;
+        };
+        if (!(style in STYLES)) throw new Error(`Unknown style: ${style}. Available: ${Object.keys(STYLES).join(", ")}`);
+        if (!(palette in PALETTES)) throw new Error(`Unknown palette: ${palette}. Available: ${Object.keys(PALETTES).join(", ")}`);
+        if (!(archetype in ARCHETYPES)) throw new Error(`Unknown archetype: ${archetype}. Available: ${Object.keys(ARCHETYPES).join(", ")}`);
+        const result = exportProject(style, palette, archetype, projectName);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      case "generate_palette_variants": {
+        const { colors } = args as { colors: string[] };
+        if (!Array.isArray(colors) || colors.length === 0) throw new Error("colors must be a non-empty array of hex strings");
+        const variants = generatePaletteVariants(colors);
+        return { content: [{ type: "text", text: JSON.stringify(variants, null, 2) }] };
+      }
+
+      case "get_cross_cutting_rules": {
+        const { category } = args as { category: string };
+        if (!(category in CROSS_CUTTING)) throw new Error(`Unknown category: ${category}. Available: ${Object.keys(CROSS_CUTTING).join(", ")}`);
+        const section = CROSS_CUTTING[category as keyof typeof CROSS_CUTTING];
+        const text = `## ${section.label}\n\n${section.rules.map((r) => `- ${r}`).join("\n")}\n`;
+        return { content: [{ type: "text", text }] };
+      }
+
+      case "get_component": {
+        const { component, style } = args as { component: string; style: string };
+        if (!COMPONENT_TYPES.includes(component as any)) throw new Error(`Unknown component: ${component}. Available: ${COMPONENT_TYPES.join(", ")}`);
+        if (!(style in STYLES)) throw new Error(`Unknown style: ${style}. Available: ${Object.keys(STYLES).join(", ")}`);
+        const html = getComponent(component as any, style);
+        return { content: [{ type: "text", text: html }] };
+      }
+
+      case "generate_template": {
+        const { style, palette, archetype } = args as { style: string; palette: string; archetype: string };
+        if (!(style in STYLES)) throw new Error(`Unknown style: ${style}. Available: ${Object.keys(STYLES).join(", ")}`);
+        if (!(palette in PALETTES)) throw new Error(`Unknown palette: ${palette}. Available: ${Object.keys(PALETTES).join(", ")}`);
+        if (!(archetype in ARCHETYPES)) throw new Error(`Unknown archetype: ${archetype}. Available: ${Object.keys(ARCHETYPES).join(", ")}`);
+        const html = generateTemplate(style, palette, archetype);
+        return { content: [{ type: "text", text: html }] };
+      }
+
+      case "generate_tailwind_config": {
+        const { style, palette } = args as { style: string; palette: string };
+        if (!(style in STYLES)) throw new Error(`Unknown style: ${style}. Available: ${Object.keys(STYLES).join(", ")}`);
+        if (!(palette in PALETTES)) throw new Error(`Unknown palette: ${palette}. Available: ${Object.keys(PALETTES).join(", ")}`);
+        const result = generateTailwindConfig(style, palette);
+        return { content: [{ type: "text", text: result.code }] };
       }
 
       case "brand_list": {

@@ -3,6 +3,7 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { spawnSync } from "child_process";
 
 export interface Palette {
   name: string;
@@ -59,7 +60,25 @@ function fetchUrl(url: string): Promise<string> {
   });
 }
 
-function parsePalettes(html: string, limit: number): Palette[] {
+function normalizePalette(raw: any): Palette | null {
+  if (raw && Array.isArray(raw.colors) && raw.colors.length >= 3) {
+    return {
+      colors: raw.colors.map((c: string) => c.startsWith("#") ? c : `#${c}`),
+      name: raw.name ?? raw.title ?? "Untitled",
+      tags: raw.tags,
+      likes: raw.likes,
+    };
+  }
+  if (raw && Array.isArray(raw) && raw.length >= 3) {
+    return {
+      colors: raw.map((c: string) => c.startsWith("#") ? c : `#${c}`),
+      name: "Untitled",
+    };
+  }
+  return null;
+}
+
+function parseHtmlPalettes(html: string, limit: number): Palette[] {
   const hexRe = /#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?/g;
   const seen = new Set<string>();
   const unique: string[] = [];
@@ -69,7 +88,6 @@ function parsePalettes(html: string, limit: number): Palette[] {
       unique.push(m);
     }
   }
-
   const palettes: Palette[] = [];
   for (let i = 0; i < unique.length; i += 4) {
     const colors = unique.slice(i, i + 4);
@@ -86,26 +104,39 @@ export async function fetchPalettes(
   opts: { theme?: string; query?: string; limit?: number } = {}
 ): Promise<PaletteData> {
   const limit = opts.limit ?? 5;
+  const baseUrl = "https://www.colorhunt.co/api/palettes";
 
   let url: string;
   let cacheKey: string;
 
   switch (mode) {
     case "trending":
-      url = "https://www.colorhunt.co/palettes/trending";
+      url = `${baseUrl}/trending?count=${limit}`;
       cacheKey = `trending:${limit}`;
       break;
     case "popular":
-      url = "https://www.colorhunt.co/palettes/popular";
+      url = `${baseUrl}/popular?count=${limit}`;
       cacheKey = `popular:${limit}`;
       break;
     case "random":
-      url = "https://www.colorhunt.co/palettes/trending";
+      url = `${baseUrl}/random?count=${limit}`;
       cacheKey = `random:${limit}`;
       break;
+    case "theme": {
+      const term = opts.theme ?? "";
+      url = `${baseUrl}/search?q=${encodeURIComponent(term)}&count=${limit}`;
+      cacheKey = `theme:${term}:${limit}`;
+      break;
+    }
+    case "query": {
+      const term = opts.query ?? "";
+      url = `${baseUrl}/search?q=${encodeURIComponent(term)}&count=${limit}`;
+      cacheKey = `query:${term}:${limit}`;
+      break;
+    }
     default: {
       const term = opts.query ?? opts.theme ?? "";
-      url = `https://www.colorhunt.co/search?q=${encodeURIComponent(term)}`;
+      url = `${baseUrl}/search?q=${encodeURIComponent(term)}&count=${limit}`;
       cacheKey = `search:${term}:${limit}`;
     }
   }
@@ -115,10 +146,36 @@ export async function fetchPalettes(
     return JSON.parse(fs.readFileSync(cp, "utf8"));
   }
 
-  const html = await fetchUrl(url);
-  const palettes = parsePalettes(html, limit);
-  const data: PaletteData = { palettes: palettes.length ? palettes : fallbackPalettes() };
+  let palettes: Palette[] = [];
+  try {
+    const raw = await fetchUrl(url);
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      palettes = parsed.map(normalizePalette).filter(Boolean) as Palette[];
+    } else if (parsed && Array.isArray(parsed.palettes)) {
+      palettes = parsed.palettes.map(normalizePalette).filter(Boolean) as Palette[];
+    } else if (parsed && typeof parsed === "object") {
+      const n = normalizePalette(parsed);
+      if (n) palettes = [n];
+    }
+    palettes = palettes.slice(0, limit);
+  } catch {
+    // API failed, try HTML scraping fallback
+    try {
+      const fallbackUrl = mode === "trending"
+        ? "https://www.colorhunt.co/palettes/trending"
+        : mode === "popular"
+        ? "https://www.colorhunt.co/palettes/popular"
+        : `https://www.colorhunt.co/search?q=${encodeURIComponent(opts.query ?? opts.theme ?? "")}`;
+      const html = await fetchUrl(fallbackUrl);
+      palettes = parseHtmlPalettes(html, limit);
+    } catch {
+      // HTML scraping also failed, try skill shell script as last resort
+      palettes = trySkillShellScript(mode, opts, limit);
+    }
+  }
 
+  const data: PaletteData = { palettes: palettes.length ? palettes : fallbackPalettes() };
   fs.writeFileSync(cp, JSON.stringify(data), "utf8");
   return data;
 }
@@ -129,4 +186,40 @@ function fallbackPalettes(): Palette[] {
     { name: "Pastel Dreams", colors: ["#FFB3BA", "#FFCCCB", "#FFFFBA", "#BAE1FF"] },
     { name: "Dark & Bold", colors: ["#2C3E50", "#E74C3C", "#ECF0F1", "#3498DB"] },
   ];
+}
+
+function trySkillShellScript(
+  mode: string,
+  opts: { theme?: string; query?: string; limit?: number },
+  limit: number
+): Palette[] {
+  const skillPath = process.env.COLOR_PALETTE_HUNTER_PATH
+    ?? path.join(__dirname, "..", "skills", "color-palette-hunter");
+  const script = path.join(skillPath, "scripts", "fetch-palette.sh");
+
+  if (!fs.existsSync(script)) return [];
+
+  const args = ["--limit", String(limit), "--format", "json"];
+  if (mode === "trending") args.push("--trending");
+  else if (mode === "popular") args.push("--popular");
+  else if (mode === "random") args.push("--random");
+  else if (opts.theme) args.push("--theme", opts.theme);
+  else if (opts.query) args.push("--query", opts.query);
+
+  try {
+    const result = spawnSync("bash", [script, ...args], {
+      encoding: "utf8",
+      timeout: 15000,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    if (result.status === 0 && result.stdout) {
+      const parsed = JSON.parse(result.stdout);
+      if (Array.isArray(parsed.palettes)) {
+        return parsed.palettes.map(normalizePalette).filter(Boolean) as Palette[];
+      }
+    }
+  } catch {
+    // shell script fallback failed
+  }
+  return [];
 }
