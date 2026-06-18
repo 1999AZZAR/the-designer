@@ -18,6 +18,7 @@ import { generateTemplate } from "./templates.js";
 import { getComponent, COMPONENT_TYPES } from "./components.js";
 import { generatePaletteVariants } from "./palette-variants.js";
 import { exportProject } from "./export.js";
+import { evaluateStyle } from "./evaluate.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MCP_ROOT = join(__dirname, "..");
@@ -99,7 +100,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "generate_rules",
-      description: "Generate design rules for a style + palette + optional archetype/hybrid. Returns JSON rules and a formatted string suitable for .cursorrules.",
+      description: "Generate design rules for a style + palette + optional archetype/hybrid. IMPORTANT: Run evaluate_style first to determine the best style for your product context. Only use this tool after evaluation confirms the style choice.",
       inputSchema: {
         type: "object",
         properties: {
@@ -193,7 +194,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "generate_template",
-      description: "Generate a full HTML starter page for a style + palette + archetype combination. Returns a complete standalone HTML file with Tailwind CDN, styled components, and responsive layout.",
+      description: "Generate a full HTML starter page for a style + palette + archetype combination. IMPORTANT: Run evaluate_style first to determine the best style/palette/archetype for your product context.",
       inputSchema: {
         type: "object",
         properties: {
@@ -206,7 +207,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "get_component",
-      description: "Get a production-ready HTML/Tailwind component snippet styled for a specific design system. Components: button, card, navbar, hero, form-input, badge, modal, sidebar, table, footer.",
+      description: "Get a production-ready HTML/Tailwind component snippet styled for a specific design system. IMPORTANT: Run evaluate_style first to confirm the style choice. Components: button, card, navbar, hero, form-input, badge, modal, sidebar, table, footer.",
       inputSchema: {
         type: "object",
         properties: {
@@ -256,6 +257,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: "list_installed_skills",
       description: "Detect and list all installed skill submodules alongside this MCP. Shows which skills are available for standalone use and what capabilities they provide.",
       inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "evaluate_style",
+      description: "Evaluates a product description against all design systems and returns ranked style recommendations with scoring. USE THIS FIRST before generate_rules. Takes a product context (e.g. 'automotive gaming mouse', 'enterprise dashboard', 'luxury ecommerce') and returns the best-matching style, palette, archetype, and a step-by-step workflow.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          description: { type: "string", description: "Product description or context (e.g. 'automotive gaming mouse', 'enterprise admin dashboard', 'luxury fashion ecommerce')" },
+        },
+        required: ["description"],
+      },
     },
     {
       name: "brand_list",
@@ -363,6 +375,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } finally {
           rmSync(tmp, { recursive: true, force: true });
         }
+      }
+
+      case "evaluate_style": {
+        const { description } = args as { description: string };
+        const result = evaluateStyle(description);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       case "list_installed_skills": {
