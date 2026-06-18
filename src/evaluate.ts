@@ -92,13 +92,17 @@ function scoreArchetype(description: string, contexts: string[]): string {
 
 function buildWorkflow(recommended: string, palette: string, archetype: string): string[] {
   return [
-    `1. validate_combo — style="${recommended}", palette="${palette}" → confirm valid`,
-    `2. brand_fetch_design_md — pull reference for relevant brands (if applicable)`,
-    `3. generate_rules — style="${recommended}", palette="${palette}", archetype="${archetype}" → get design rules`,
-    `4. get_reference — pull deep-dive docs (accessibility, tokens, etc.) as needed`,
-    `5. generate_template — style="${recommended}", palette="${palette}", archetype="${archetype}" → starter HTML`,
-    `6. get_component — individual components styled for "${recommended}"`,
-    `7. export_project — full scaffold when ready to ship`,
+    `PHASE 1: WIREFRAME`,
+    `  - validate_combo — style="${recommended}", palette="${palette}" → confirm valid`,
+    `  - brand_fetch_design_md — pull reference for relevant brands (if applicable)`,
+    `  - generate_rules — style="${recommended}", palette="${palette}", archetype="${archetype}" → get design rules`,
+    `PHASE 2: PROTOTYPE`,
+    `  - get_reference — pull deep-dive docs (accessibility, tokens, etc.) as needed`,
+    `  - generate_template — style="${recommended}", palette="${palette}", archetype="${archetype}" → starter HTML`,
+    `  - get_component — individual components styled for "${recommended}"`,
+    `PHASE 3: TEST`,
+    `  - export_project — full scaffold when ready to ship`,
+    `  - Use cross-cutting rules to validate accessibility and responsive behavior`,
   ];
 }
 

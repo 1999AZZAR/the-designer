@@ -396,6 +396,20 @@ const BASE_RULES = `# AI Design Rules
 - Prefer one primary design language unless a hybrid has explicit ownership boundaries.
 - Avoid generic AI aesthetics: no default purple gradients, no glossy filler, no emoji in functional UI.
 - Keep interfaces production-ready, accessible, and structurally coherent.
+
+## UI Principles
+1. **Structural, Clear, and Tidy**: Layout must follow a logical hierarchy with intentional alignment and grouping.
+2. **Clear and Understandable**: Every element must have a clear purpose and be easily identifiable.
+3. **Consistent and Coherent**: Use the same patterns, spacing, and styles across the entire interface.
+4. **Purposeful and Relevant**: Only include elements that serve a specific user goal.
+5. **Adaptable and Responsive**: Design must work seamlessly across all screen sizes and orientations.
+
+## UX Principles
+1. **Intuitive and User-Friendly**: Design for how users think, making interactions feel natural.
+2. **Easy to Learn and Use**: Minimize cognitive load by using familiar patterns and clear navigation.
+3. **Consistent around the UI**: Maintain behavior and visual expectations across all surfaces.
+4. **Accessible and Inclusive**: Ensure the design works for everyone, regardless of ability or context.
+5. **Efficient and Effective**: Optimize for task completion speed and accuracy.
 `;
 
 function formatSection(title: string, items: string[]): string {
