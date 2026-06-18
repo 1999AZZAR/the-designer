@@ -24,7 +24,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const MCP_ROOT = join(__dirname, "..");
 
 const SKILL_PATH =
-  process.env.UI_DESIGNER_SKILL_PATH ??
+  process.env.THE_DESIGNER_SKILL_PATH ??
   join(MCP_ROOT, "skills/ui-designer");
 
 const PALETTE_SKILL_PATH =
@@ -92,7 +92,7 @@ function runCommand(cmd: string, args: string[], cwd?: string): string {
 }
 
 const server = new Server(
-  { name: "ui-designer", version: "1.0.0" },
+  { name: "the-designer", version: "1.0.0" },
   { capabilities: { tools: {} } }
 );
 
