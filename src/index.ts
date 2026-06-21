@@ -207,11 +207,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "get_component",
-      description: "Get a production-ready HTML/Tailwind component snippet styled for a specific design system. IMPORTANT: Run evaluate_style first to confirm the style choice. Components: button, card, navbar, hero, form-input, badge, modal, sidebar, table, footer.",
+      description: "Get a production-ready HTML/Tailwind component snippet styled for a specific design system. IMPORTANT: Run evaluate_style first to confirm the style choice. Components: button, card, navbar, hero, form-input, badge, modal, sidebar, table, footer, chart.",
       inputSchema: {
         type: "object",
         properties: {
-          component: { type: "string", enum: ["button", "card", "navbar", "hero", "form-input", "badge", "modal", "sidebar", "table", "footer"], description: "Component type" },
+          component: { type: "string", enum: ["button", "card", "navbar", "hero", "form-input", "badge", "modal", "sidebar", "table", "footer", "chart"], description: "Component type" },
           style: { type: "string", description: "Design system: ant|carbon|fluent|atlassian|apple-hig|polaris|material|minimal|glass|neumorphism|neo-brutalism|claymorphism|skeuomorphism|swiss|swiss-archival|m3-pastel|neo-m3" },
         },
         required: ["component", "style"],

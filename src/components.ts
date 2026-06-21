@@ -1,10 +1,10 @@
 export type ComponentType =
   | "button" | "card" | "navbar" | "hero" | "form-input"
-  | "badge" | "modal" | "sidebar" | "table" | "footer";
+  | "badge" | "modal" | "sidebar" | "table" | "footer" | "chart";
 
 export const COMPONENT_TYPES: ComponentType[] = [
   "button", "card", "navbar", "hero", "form-input",
-  "badge", "modal", "sidebar", "table", "footer",
+  "badge", "modal", "sidebar", "table", "footer", "chart",
 ];
 
 function variantClasses(style: string): Record<string, string> {
@@ -268,6 +268,101 @@ function footerComponent(style: string): string {
 </footer>`;
 }
 
+function chartComponent(style: string): string {
+  const v = variantClasses(style);
+  const cardBg = style === "glass" ? "bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl"
+    : style === "neo-brutalism" ? "bg-white border-2 border-black neo-shadow rounded-none"
+    : style === "neumorphism" ? "neu-surface rounded-2xl"
+    : "bg-white rounded-xl shadow-sm border border-slate-200";
+
+  return `<!-- Chart Component (Powered by ApexCharts) -->
+<div class="${cardBg} p-6 max-w-xl w-full">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h3 class="font-semibold text-slate-900">Performance Metrics</h3>
+      <p class="text-xs text-slate-400">Activity and conversion over time</p>
+    </div>
+    <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Live</span>
+  </div>
+  <div id="apex-performance-chart" class="w-full h-64"></div>
+</div>
+
+<!-- Add this script to load ApexCharts and initialize -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const isDark = ${style === "glass" ? "true" : "false"};
+    let primaryColor = '#3b82f6';
+    let secondaryColor = '#10b981';
+    
+    if (window.tailwind && window.tailwind.config && window.tailwind.config.theme) {
+      const extendColors = window.tailwind.config.theme.extend && window.tailwind.config.theme.extend.colors;
+      if (extendColors) {
+        primaryColor = extendColors.primary || primaryColor;
+        secondaryColor = extendColors.secondary || secondaryColor;
+      }
+    }
+
+    const options = {
+      series: [{
+        name: 'Conversions',
+        data: [44, 55, 41, 67, 22, 43, 21]
+      }, {
+        name: 'Engagement',
+        data: [13, 23, 20, 8, 13, 27, 33]
+      }],
+      chart: {
+        type: 'bar',
+        height: 250,
+        stacked: true,
+        toolbar: { show: false },
+        background: 'transparent',
+        foreColor: isDark ? '#94a3b8' : '#64748b'
+      },
+      colors: [primaryColor.trim(), secondaryColor.trim()],
+      responsive: [{
+        breakpoint: 480,
+        options: {
+          legend: {
+            position: 'bottom',
+            offsetX: -10,
+            offsetY: 0
+          }
+        }
+      }],
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          borderRadius: ${style === "neo-brutalism" ? "0" : "4"},
+        },
+      },
+      xaxis: {
+        categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        axisBorder: { show: false },
+        axisTicks: { show: false }
+      },
+      grid: {
+        borderColor: isDark ? '#334155' : '#f1f5f9',
+        strokeDashArray: 4
+      },
+      legend: {
+        position: 'top',
+        horizontalAlign: 'right',
+      },
+      fill: {
+        opacity: 0.95
+      },
+      tooltip: {
+        theme: isDark ? 'dark' : 'light'
+      }
+    };
+
+    const chart = new ApexCharts(document.querySelector("#apex-performance-chart"), options);
+    chart.render();
+  });
+</script>`;
+}
+
 export function getComponent(type: ComponentType, style: string): string {
   switch (type) {
     case "button": return buttonComponent(style);
@@ -280,6 +375,7 @@ export function getComponent(type: ComponentType, style: string): string {
     case "sidebar": return sidebarComponent(style);
     case "table": return tableComponent(style);
     case "footer": return footerComponent(style);
+    case "chart": return chartComponent(style);
     default: return `<!-- Unknown component: ${type} -->`;
   }
 }
