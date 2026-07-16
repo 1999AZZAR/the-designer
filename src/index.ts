@@ -19,6 +19,10 @@ import { getComponent, COMPONENT_TYPES } from "./components.js";
 import { generatePaletteVariants } from "./palette-variants.js";
 import { exportProject } from "./export.js";
 import { evaluateStyle } from "./evaluate.js";
+import { scanProject } from "./preflight.js";
+import { runSlopTest, selfCritique, type SlopTestResult, type QualityScore } from "./anti-patterns.js";
+import { generateTokens, buildCustomTokens, listThemes, listGenres, detectGenre, type GenerateTokensResult } from "./tokens.js";
+import { generate8StateWrapperHtml, type ComponentKind } from "./components-8state.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MCP_ROOT = join(__dirname, "..");
@@ -92,7 +96,7 @@ function runCommand(cmd: string, args: string[], cwd?: string): string {
 }
 
 const server = new Server(
-  { name: "the-designer", version: "1.0.0" },
+  { name: "the-designer", version: "2.0.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -279,6 +283,103 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
       },
     },
+    {
+      name: "pre_flight_scan",
+      description: "Scan an existing project directory and detect framework, font stack, palette tokens, motion libraries, and spacing scale before designing. Returns structured pre-flight findings with preservation/introduction recommendations.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          project_path: { type: "string", description: "Absolute path to the project root. Defaults to MCP root if omitted." },
+        },
+      },
+    },
+    {
+      name: "anti_pattern_check",
+      description: "Run a 35-gate quality checklist (slop test) against HTML/CSS content. Detects common AI design tells: italic headers, em-in-heading, dummy section tags, fabricated metrics, fake chrome, specimen fall-through, hanging headers, generic CTA, glass on white, missing a11y, and more. Specify genre to scope genre-specific gates.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "HTML or CSS content to check" },
+          genre: { type: "string", enum: ["editorial", "modern-minimal", "atmospheric", "playful"], default: "editorial", description: "Genre for scoped gate application" },
+        },
+        required: ["content"],
+      },
+    },
+    {
+      name: "self_critique",
+      description: "Score output on 6 quality axes (Philosophy, Hierarchy, Execution, Specificity, Restraint, Variety) before shipping. Returns 1-5 per axis and a summary score. Anything < 3 triggers a revision pass.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "HTML/CSS content to score" },
+        },
+        required: ["content"],
+      },
+    },
+    {
+      name: "generate_tokens",
+      description: "Generate a complete design token system (tokens.css) based on a named theme or genre. Returns CSS custom properties for colors (OKLCH), fonts, spacing, text sizes, easings, durations, and radii. Can also output a Tailwind v4 @theme block.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          theme_name: { type: "string", description: "Named theme: Specimen|Atelier|Newsprint|Studio|Manifesto|Brutal|Terminal|Midnight|Bloom|Aurora|Cobalt|Coral|Hum|Garden|Sport|Carnival" },
+          genre: { type: "string", enum: ["editorial", "modern-minimal", "atmospheric", "playful"], description: "Genre to pick a theme from (ignored if theme_name provided)" },
+          last_theme: { type: "string", description: "Previous theme name for diversification" },
+          last_accent: { type: "string", description: "Previous accent hue for diversification" },
+        },
+      },
+    },
+    {
+      name: "list_themes",
+      description: "List all available named themes, optionally filtered by genre. Each theme includes paper/accent OKLCH values, font pairing, and axis metadata for diversification.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          genre: { type: "string", enum: ["editorial", "modern-minimal", "atmospheric", "playful"], description: "Optional genre filter" },
+        },
+      },
+    },
+    {
+      name: "detect_genre",
+      description: "Detect the most appropriate design genre from a product description or brief. Returns one of: editorial, modern-minimal, atmospheric, playful.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          brief: { type: "string", description: "Product description, brief, or design request text" },
+        },
+        required: ["brief"],
+      },
+    },
+    {
+      name: "generate_8state_component",
+      description: "Generate a complete 8-state component demo page (default, hover, focus, active, disabled, loading, error, success) for a given component kind. Returns a standalone HTML preview file with all states rendered.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["button", "input", "toggle", "chip", "select"], description: "Component kind" },
+        },
+        required: ["kind"],
+      },
+    },
+    {
+      name: "build_custom_tokens",
+      description: "Build a custom OKLCH token system from scratch with paper color, accent color, and font pairing. Use when a brief signals creative-intent (brand color, multi-vibe aesthetic, explicit custom request). Returns tokens.css + Tailwind v4 @theme block.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          paper_l: { type: "number", description: "Paper lightness (0-100)" },
+          paper_c: { type: "number", description: "Paper chroma (0-50)" },
+          paper_h: { type: "number", description: "Paper hue (0-360)" },
+          accent_l: { type: "number", description: "Accent lightness (0-100)" },
+          accent_c: { type: "number", description: "Accent chroma (0-50)" },
+          accent_h: { type: "number", description: "Accent hue (0-360)" },
+          font_display: { type: "string", description: "Display font stack, e.g. 'Instrument Serif', Georgia, serif" },
+          font_body: { type: "string", description: "Body font stack, e.g. 'Inter', system-ui, sans-serif" },
+          font_mono: { type: "string", description: "Optional mono font stack (default: JetBrains Mono)" },
+        },
+        required: ["paper_l", "paper_c", "paper_h", "accent_l", "accent_c", "accent_h", "font_display", "font_body"],
+      },
+    },
   ],
 }));
 
@@ -454,6 +555,66 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { category } = args as { category?: string };
         const catalog = category ? { [category]: BRAND_CATALOG[category] ?? [] } : BRAND_CATALOG;
         return { content: [{ type: "text", text: JSON.stringify(catalog, null, 2) }] };
+      }
+
+      // === New tools ===
+
+      case "pre_flight_scan": {
+        const { project_path } = args as { project_path?: string };
+        const result = scanProject(project_path);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      case "anti_pattern_check": {
+        const { content, genre = "editorial" } = args as { content: string; genre?: string };
+        const result = runSlopTest(content, genre);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      case "self_critique": {
+        const { content } = args as { content: string };
+        const result = selfCritique(content);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      case "generate_tokens": {
+        const { theme_name, genre, last_theme, last_accent } = args as {
+          theme_name?: string; genre?: string; last_theme?: string; last_accent?: string;
+        };
+        const result = generateTokens(theme_name, genre, last_theme, last_accent);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      case "list_themes": {
+        const { genre } = args as { genre?: string };
+        const themes = listThemes(genre);
+        return { content: [{ type: "text", text: JSON.stringify(themes, null, 2) }] };
+      }
+
+      case "detect_genre": {
+        const { brief } = args as { brief: string };
+        const genre = detectGenre(brief);
+        return { content: [{ type: "text", text: JSON.stringify({ brief, detected_genre: genre }, null, 2) }] };
+      }
+
+      case "generate_8state_component": {
+        const { kind } = args as { kind: string };
+        const html = generate8StateWrapperHtml(kind as ComponentKind);
+        return { content: [{ type: "text", text: html }] };
+      }
+
+      case "build_custom_tokens": {
+        const { paper_l, paper_c, paper_h, accent_l, accent_c, accent_h, font_display, font_body, font_mono } = args as {
+          paper_l: number; paper_c: number; paper_h: number;
+          accent_l: number; accent_c: number; accent_h: number;
+          font_display: string; font_body: string; font_mono?: string;
+        };
+        const result = buildCustomTokens(
+          { l: paper_l, c: paper_c, h: paper_h },
+          { l: accent_l, c: accent_c, h: accent_h },
+          font_display, font_body, font_mono
+        );
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       default:

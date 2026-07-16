@@ -1,7 +1,7 @@
 {
   "name": "the-designer-mcp",
-  "version": "1.0.0",
-  "description": "MCP server combining ui-designer, color-palette-hunter, and getdesign.md brand references",
+  "version": "2.0.0",
+  "description": "MCP server — design system selection, theming, anti-slop quality gates, component 8-state generator, project pre-flight scan, brand references, color palettes",
   "author": "Azzar Budiyanto",
   "license": "MIT",
   "type": "module",
