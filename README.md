@@ -3,105 +3,134 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
 
-A Model Context Protocol (MCP) server combining three design capabilities into a single endpoint: **UI design rules generation**, **color palette hunting**, and **real brand design reference fetching** (328+ brands).
-
-## Table of Contents
-
-- [Features](#features)
-- [Tools](#tools)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Configuring with AI Assistants](#configuring-with-ai-assistants)
+A Model Context Protocol (MCP) server for production-grade UI design — design rules, anti-slop quality gates, OKLCH token generation, color palettes, and 328+ brand references.
 
 ## Features
 
-- **Design Rules Generator**: Generate production-ready design rules from 17 design systems (Material, Ant, Carbon, Glass, etc.) + 4 palette modes + 5 archetypes + hybrid combos
-- **Color Palette Hunter**: Fetch live trending, popular, or themed palettes from Color Hunt with format conversion (CSS, Tailwind, SCSS, Figma, Android XML, Swift)
-- **Brand Design References**: Access DESIGN.md files for 328+ real-world brands (Stripe, Vercel, Tesla, Claude, Spotify, etc.) grouped by category
-- **Reference Library**: Built-in reference docs for design systems, accessibility, design tokens, and more
+- **Anti-Slop Quality Gates** — 31-gate slop test catches AI tells: italic headers, fake chrome, fabricated metrics, generic CTAs, hanging headers, glass-on-white, Lorem ipsum. 6-axis self-critique (P-H-E-S-R-V) rejects anything < 3.
+- **OKLCH Token System** — 16 curated themes (Specimen, Atelier, Brutal, Terminal, Midnight, Bloom, etc.) with full token sets. Genre scoping (editorial, modern-minimal, atmospheric, playful). Build custom tokens from OKLCH values.
+- **Design Rules Generator** — 17 design systems (Material, Ant, Carbon, Glass, Swiss, etc.) + 4 palettes + 5 archetypes + hybrid combos.
+- **Pre-Flight Scan** — Detect existing project context: framework, font stack, palette tokens, motion libraries before designing.
+- **Component 8-State Generator** — Standalone demo pages with all 8 interactive states (default, hover, focus, active, disabled, loading, error, success).
+- **Color Palette Hunter** — Live trending/popular/themed palettes from Color Hunt with format conversion.
+- **Brand Design References** — 328+ real-world brands (Stripe, Vercel, Notion, Claude, Tesla, etc.).
 
 ## Tools
 
+### Core Design Flow
 | Tool | Description |
 |------|-------------|
-| `generate_rules` | Generate design rules for a style + palette + optional archetype/hybrid |
-| `list_options` | List all available design systems, palettes, archetypes, and valid hybrid combos |
-| `validate_combo` | Validate a style + palette + optional hybrid combination before generating |
-| `get_reference` | Return full content of a reference document (e.g. `ant-design`, `design-tokens`) |
-| `palette_fetch` | Fetch live color palettes from Color Hunt (trending/popular/random/theme/query) |
-| `palette_convert` | Convert palette JSON into CSS, Tailwind, SCSS, Figma tokens, Android XML, or Swift |
-| `brand_fetch_design_md` | Download and return the DESIGN.md for a real brand |
-| `brand_list` | List all 328+ supported brands grouped by category |
+| `evaluate_style` | Score 17 design systems against product context |
+| `detect_genre` | Classify brief into editorial / modern-minimal / atmospheric / playful |
+| `pre_flight_scan` | Scan existing project for framework, fonts, palette, motion libs |
+| `generate_rules` | Generate design rules for style + palette + archetype/hybrid |
+| `generate_tailwind_config` | Generate ready-to-use tailwind.config.js |
+| `get_cross_cutting_rules` | Get standalone rules (a11y, motion, icons, tokens, responsive) |
+
+### Theme & Token System
+| Tool | Description |
+|------|-------------|
+| `generate_tokens` | Generate complete OKLCH token system from named theme or genre |
+| `list_themes` | List all 16 themes with OKLCH values, fonts, axis metadata |
+| `build_custom_tokens` | Build custom OKLCH token system from paper/accent/font values |
+
+### Quality Gates
+| Tool | Description |
+|------|-------------|
+| `anti_pattern_check` | Run 31-gate slop test on HTML/CSS — italic headers, fake chrome, fabricated metrics, section tags, hanging headers, glass-on-white, more |
+| `self_critique` | Score output on 6 quality axes (Philosophy, Hierarchy, Execution, Specificity, Restraint, Variety) — anything < 3 triggers revision |
+
+### Component & Template
+| Tool | Description |
+|------|-------------|
+| `generate_template` | Full HTML starter page for style + palette + archetype |
+| `get_component` | Production-ready component snippet (button, card, nav, hero, etc.) |
+| `generate_8state_component` | Standalone HTML preview with all 8 interactive states |
+| `generate_palette_variants` | Light/dark/high-contrast variants from hex colors |
+| `export_project` | Full project scaffold (config + HTML + components) |
+
+### Color & Palette
+| Tool | Description |
+|------|-------------|
+| `palette_fetch` | Fetch live palettes from Color Hunt |
+| `palette_convert` | Convert palette JSON to CSS / Tailwind / SCSS / Figma / Android / Swift |
+
+### Brand References
+| Tool | Description |
+|------|-------------|
+| `brand_fetch_design_md` | Download DESIGN.md for a real brand |
+| `brand_list` | List all 328+ brands by category |
+
+### Utility
+| Tool | Description |
+|------|-------------|
+| `list_options` | List all available systems, palettes, archetypes, hybrids |
+| `validate_combo` | Validate style + palette + hybrid combo |
+| `get_reference` | Pull full content of any reference doc |
+| `list_installed_skills` | Detect installed skill submodules |
 
 ## Installation
 
-### Manual Installation
-
 ```bash
-# Clone the repository
 git clone https://github.com/1999AZZAR/the-designer.git
 cd the-designer
-
-# Install dependencies
 npm install
-
-# Build the project
 npm run build
 ```
 
-### Requirements
-
-- Node.js >= 18
+**Requirements**: Node.js >= 18
 
 ## Usage
 
-### Starting the Server
-
 ```bash
-# Start the server using stdio (default mode)
 npm start
 ```
-
-### Testing with MCP Inspector
 
 ```bash
 npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
-### Available NPM Scripts
-
-```bash
-npm run build   # Build the TypeScript project
-npm start       # Start the MCP server
-```
-
 ## Architecture
-
-All tooling is implemented in TypeScript within the MCP server. The `skills/` directories are git submodules kept for reference and standalone script usage, but the MCP does not shell out to them at runtime.
 
 ```
 src/
-  index.ts            # MCP server entry, tool routing
-  rules.ts            # Design systems, palettes, archetypes, hybrids, rule generation
-  palette.ts          # Color Hunt palette fetcher with caching
-  palette-convert.ts  # Format converter (CSS, Tailwind, SCSS, Figma, Android, Swift)
+  index.ts              # MCP server entry, tool routing (23 tools)
+  rules.ts              # 17 design systems, palettes, archetypes, hybrids
+  anti-patterns.ts      # 31-gate slop test + 6-axis self-critique
+  tokens.ts             # 16 curated themes, OKLCH token generation, genre detection
+  preflight.ts          # Project context scanner (framework, fonts, palette, motion)
+  components-8state.ts  # 8-state component demo generator
+  evaluate.ts           # Style scoring engine
+  palette.ts            # Color Hunt palette fetcher
+  palette-convert.ts    # Format converter
+  components.ts         # Component snippet library
+  templates.ts          # HTML template generator
+  tailwind-config.ts    # Tailwind config generator
+  export.ts             # Project scaffold exporter
+skills/
+  ui-designer/          # Reference docs + genre files (git submodule)
+  color-palette-hunter/ # Palette CLI scripts (git submodule)
 ```
+
+## Anti-Slop Design Philosophy
+
+- **Locked tokens** — every color/font references a named CSS variable, never inline values
+- **No fabricated content** — real metrics or labeled placeholders only
+- **No re-drawn chrome** — no fake browser bars, phone frames, or code window chrome
+- **Typography purity** — headings always roman, no italic display faces
+- **Structural variety** — different briefs produce structurally different pages
+- **Mobile-responsiveness hard floor** — 320/375/414/768px, `overflow-x: clip`, `minmax(0, 1fr)`, no two-line clickable text
+- **OKLCH-first** — all new tokens defined in OKLCH for perceptual uniformity
 
 ## Configuration
 
-### Environment Variables
-
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `UI_DESIGNER_SKILL_PATH` | `skills/ui-designer` | Path to the ui-designer skill references directory |
+| `UI_DESIGNER_SKILL_PATH` | `skills/ui-designer` | Path to the ui-designer skill references |
+| `COLOR_PALETTE_HUNTER_PATH` | `skills/color-palette-hunter` | Path to the color palette hunter skill |
 
 ## Configuring with AI Assistants
 
-### Claude Desktop
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
 ```json
 {
   "mcpServers": {
@@ -113,36 +142,6 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   }
 }
 ```
-
-### Roo Code / Cline
-
-Add to your MCP settings file:
-
-```json
-{
-  "mcpServers": {
-    "the-designer": {
-      "command": "node",
-      "args": ["/path/to/the-designer/dist/index.js"],
-      "env": {}
-    }
-  }
-}
-```
-
-## Brand Categories
-
-| Category | Brands |
-|----------|--------|
-| Productivity SaaS | Notion, Airtable, Cal, Superhuman, Miro, Intercom, Zapier, Linear |
-| Developer Tools | Vercel, Supabase, Cursor, Raycast, Warp, PostHog, Sentry, Expo, Figma, Webflow |
-| AI / ML | Claude, Cohere, Mistral, xAI, MiniMax, Replicate, RunwayML, ElevenLabs, Ollama |
-| Fintech | Stripe, Coinbase, Binance, Kraken, Revolut, Wise, Mastercard |
-| Design / Creative | Figma, Framer, Clay, Lovable, Webflow, Linear |
-| Ecommerce | Shopify, Nike, Starbucks |
-| Media / Consumer | Spotify, Discord, Slack, Pinterest, The Verge, Wired |
-| Automotive / Luxury | Tesla, SpaceX, Ferrari, Bugatti, Lamborghini, BMW, Vodafone |
-| Legacy / Archival | Apple, Dell (1996), HP, Nintendo (2001) |
 
 ## License
 
