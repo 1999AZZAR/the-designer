@@ -69,6 +69,13 @@ A Model Context Protocol (MCP) server for production-grade UI design — design 
 | `get_reference` | Pull full content of any reference doc |
 | `list_installed_skills` | Detect installed skill submodules |
 
+## Examples
+
+**Ellis UI (`examples/ellis-ui`)**  
+A comprehensive, anti-slop component library demonstrating the extreme versatility of `the-designer`'s ruleset. The project takes a single romantic letter and renders it across **24 radically different, strictly enforced aesthetic systems** (e.g., Swiss Archival, Vintage Airmail, Brutalist, UNIX Phosphor, 8-Bit Game Boy). 
+
+Each design acts as a fully standalone, reusable UI kit utilizing zero JS dependencies—relying entirely on strict structural typography, CSS geometry, and advanced CSS rendering techniques (clip-paths, custom filters, OKLCH gradients). Each of the 24 folders includes a `design.md` detailing the tokens and layout strategy, acting as an advanced template reference for `the-designer`.
+
 ## Installation
 
 ```bash

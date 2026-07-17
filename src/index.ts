@@ -4,7 +4,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { readFileSync, existsSync, mkdirSync, rmSync } from "fs";
+import { readFileSync, existsSync, mkdirSync, rmSync, readdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { tmpdir } from "os";
@@ -380,6 +380,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["paper_l", "paper_c", "paper_h", "accent_l", "accent_c", "accent_h", "font_display", "font_body"],
       },
     },
+    {
+      name: "list_ellis_ui_designs",
+      description: "List all 24 bespoke Ellis UI component design templates with their specific aesthetic focus.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "get_ellis_ui_template",
+      description: "Fetch the HTML structure and CSS logic of a specific Ellis UI design system (e.g., 'backup_dossier' or 'backup_gameboy'). Returns both the design.md guidelines and the root index.html template.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          design_name: { type: "string", description: "The folder name of the design (e.g. backup_nutrition, backup_gameboy, backup_swiss_archival)" },
+        },
+        required: ["design_name"],
+      },
+    },
   ],
 }));
 
@@ -427,6 +443,48 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }),
           }],
         };
+      }
+
+      case "list_ellis_ui_designs": {
+        const ellisPath = join(dirname(fileURLToPath(import.meta.url)), "..", "examples", "ellis-ui");
+        if (!existsSync(ellisPath)) {
+          throw new Error(`Ellis UI examples directory not found at ${ellisPath}`);
+        }
+        const dirs = readdirSync(ellisPath, { withFileTypes: true })
+          .filter(dirent => dirent.isDirectory() && dirent.name.startsWith("backup_"))
+          .map(dirent => dirent.name);
+        
+        let output = "Available Ellis UI Templates:\\n";
+        for (const d of dirs) {
+          const mdPath = join(ellisPath, d, "design.md");
+          if (existsSync(mdPath)) {
+            const lines = readFileSync(mdPath, "utf-8").split("\\n");
+            const titleLine = lines.find(l => l.startsWith("# Design System:"));
+            const title = titleLine ? titleLine.replace("# Design System: ", "") : d;
+            output += `- ${d}: ${title}\\n`;
+          } else {
+            output += `- ${d}\\n`;
+          }
+        }
+        return { content: [{ type: "text", text: output }] };
+      }
+
+      case "get_ellis_ui_template": {
+        const { design_name } = args as { design_name: string };
+        const designPath = join(dirname(fileURLToPath(import.meta.url)), "..", "examples", "ellis-ui", design_name);
+        if (!existsSync(designPath)) {
+          throw new Error(`Design ${design_name} not found in Ellis UI examples.`);
+        }
+        const mdPath = join(designPath, "design.md");
+        const htmlPath = join(designPath, "index.html");
+        let output = "";
+        if (existsSync(mdPath)) {
+          output += `--- DESIGN GUIDELINES ---\\n${readFileSync(mdPath, "utf-8")}\\n\\n`;
+        }
+        if (existsSync(htmlPath)) {
+          output += `--- HTML TEMPLATE ---\\n${readFileSync(htmlPath, "utf-8")}\\n`;
+        }
+        return { content: [{ type: "text", text: output }] };
       }
 
       case "get_reference": {
