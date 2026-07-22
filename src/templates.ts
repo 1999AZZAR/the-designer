@@ -1,4 +1,5 @@
 import { generateTailwindConfig } from "./tailwind-config.js";
+import { buildAnimeShell } from "./anime-motion.js";
 
 function tailwindFontFamily(style: string): string {
   const map: Record<string, string> = {
@@ -26,17 +27,8 @@ function tailwindFontFamily(style: string): string {
 function shellStyle(style: string, palette: string): string {
   const { code } = generateTailwindConfig(style, palette);
   const fontLine = tailwindFontFamily(style);
-  return `<script src="https://cdn.tailwindcss.com"></script>
-<script>
-${code}
-</script>
-<style>
-  body { ${fontLine}; }
-  ${style === "glass" ? "body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); }" : ""}
-  ${style === "neo-brutalism" ? ".neo-shadow { box-shadow: 4px 4px 0px rgba(0,0,0,1); }" : ""}
-  ${style === "neumorphism" ? ".neu-surface { background: #e2e8f0; box-shadow: 6px 6px 12px rgba(0,0,0,0.15), -6px -6px 12px rgba(255,255,255,0.7); }" : ""}
-  ${style === "claymorphism" ? ".clay-card { box-shadow: 4px 4px 8px rgba(0,0,0,0.10), inset 0 -4px 8px rgba(0,0,0,0.06); }" : ""}
-</style>`;
+  const animeShell = buildAnimeShell(style);
+  return `<script src="https://cdn.tailwindcss.com"></script>\n<script>\n${code}\n</script>\n<style>\n  body { ${fontLine}; }\n  ${style === "glass" ? "body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); }" : ""}\n  ${style === "neo-brutalism" ? ".neo-shadow { box-shadow: 4px 4px 0px rgba(0,0,0,1); }" : ""}\n  ${style === "neumorphism" ? ".neu-surface { background: #e2e8f0; box-shadow: 6px 6px 12px rgba(0,0,0,0.15), -6px -6px 12px rgba(255,255,255,0.7); }" : ""}\n  ${style === "claymorphism" ? ".clay-card { box-shadow: 4px 4px 8px rgba(0,0,0,0.10), inset 0 -4px 8px rgba(0,0,0,0.06); }" : ""}\n</style>\n${animeShell}`;
 }
 
 function dashboardTemplate(style: string, palette: string): string {
@@ -75,29 +67,29 @@ function dashboardTemplate(style: string, palette: string): string {
 
     <!-- Main -->
     <main class="flex-1 p-6 lg:p-8">
-      <header class="mb-8">
+      <header class="mb-8" data-anime-hero>
         <h1 class="text-2xl font-bold ${style === 'glass' ? 'text-white' : 'text-slate-900'}">Overview</h1>
         <p class="${style === 'glass' ? 'text-white/60' : 'text-slate-500'} mt-1">Welcome back. Here's what's happening.</p>
       </header>
 
       <!-- KPI Strip -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="${cardClass}">
+        <div class="${cardClass}" data-anime-card>
           <p class="text-sm ${style === 'glass' ? 'text-white/60' : 'text-slate-500'} mb-1">Revenue</p>
           <p class="text-2xl font-bold ${style === 'glass' ? 'text-white' : 'text-slate-900'}">$48,352</p>
           <p class="text-xs text-emerald-500 mt-1">+12.5% from last month</p>
         </div>
-        <div class="${cardClass}">
+        <div class="${cardClass}" data-anime-card>
           <p class="text-sm ${style === 'glass' ? 'text-white/60' : 'text-slate-500'} mb-1">Users</p>
           <p class="text-2xl font-bold ${style === 'glass' ? 'text-white' : 'text-slate-900'}">2,420</p>
           <p class="text-xs text-emerald-500 mt-1">+8.2% from last month</p>
         </div>
-        <div class="${cardClass}">
+        <div class="${cardClass}" data-anime-card>
           <p class="text-sm ${style === 'glass' ? 'text-white/60' : 'text-slate-500'} mb-1">Orders</p>
           <p class="text-2xl font-bold ${style === 'glass' ? 'text-white' : 'text-slate-900'}">1,210</p>
           <p class="text-xs text-rose-500 mt-1">-3.1% from last month</p>
         </div>
-        <div class="${cardClass}">
+        <div class="${cardClass}" data-anime-card>
           <p class="text-sm ${style === 'glass' ? 'text-white/60' : 'text-slate-500'} mb-1">Conversion</p>
           <p class="text-2xl font-bold ${style === 'glass' ? 'text-white' : 'text-slate-900'}">3.24%</p>
           <p class="text-xs text-emerald-500 mt-1">+0.4% from last month</p>
@@ -240,7 +232,7 @@ function marketingHeroTemplate(style: string, palette: string): string {
   </nav>
 
   <!-- Hero -->
-  <section class="px-6 lg:px-12 py-20 lg:py-32 max-w-5xl mx-auto text-center">
+  <section class="px-6 lg:px-12 py-20 lg:py-32 max-w-5xl mx-auto text-center" data-anime-hero>
     <h1 class="text-4xl lg:text-6xl font-bold text-slate-900 leading-tight mb-6">
       Build something <span class="text-primary">remarkable</span>
     </h1>
@@ -258,22 +250,20 @@ function marketingHeroTemplate(style: string, palette: string): string {
     <div class="max-w-5xl mx-auto">
       <h2 class="text-3xl font-bold text-center text-slate-900 mb-12">Everything you need</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="${cardClass} p-6">
+        <div class="${cardClass} p-6" data-anime-card>
           <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
           <h3 class="font-semibold text-slate-900 mb-2">Lightning Fast</h3>
           <p class="text-sm text-slate-500">Optimized for speed at every layer. Sub-100ms response times guaranteed.</p>
         </div>
-        <div class="${cardClass} p-6">
-          <div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary mb-4">
+        <div class="${cardClass} p-6" data-anime-card>
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           </div>
           <h3 class="font-semibold text-slate-900 mb-2">Secure by Default</h3>
           <p class="text-sm text-slate-500">Enterprise-grade security with end-to-end encryption and SOC 2 compliance.</p>
         </div>
-        <div class="${cardClass} p-6">
-          <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent mb-4">
+        <div class="${cardClass} p-6" data-anime-card>
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
           </div>
           <h3 class="font-semibold text-slate-900 mb-2">Modular System</h3>
@@ -356,7 +346,7 @@ function settingsTemplate(style: string, palette: string): string {
 
         <section class="bg-white rounded-xl border border-slate-200 p-6">
           <h2 class="font-semibold text-slate-900 mb-4">Notifications</h2>
-          <div class="space-y-3">
+          <div class="space-y-3" data-anime-list>
             <label class="flex items-center justify-between p-3 rounded-lg bg-slate-50">
               <span class="text-sm text-slate-700">Email notifications</span>
               <div class="w-10 h-6 bg-primary rounded-full relative cursor-pointer"><div class="w-4 h-4 bg-white rounded-full absolute top-1 right-1"></div></div>

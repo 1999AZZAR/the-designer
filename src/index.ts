@@ -23,6 +23,7 @@ import { scanProject } from "./preflight.js";
 import { runSlopTest, selfCritique, type SlopTestResult, type QualityScore } from "./anti-patterns.js";
 import { generateTokens, buildCustomTokens, listThemes, listGenres, detectGenre, type GenerateTokensResult } from "./tokens.js";
 import { generate8StateWrapperHtml, type ComponentKind } from "./components-8state.js";
+import { generateMotionSnippet, MOTION_CATEGORIES, type MotionCategory } from "./anime-motion.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MCP_ROOT = join(__dirname, "..");
@@ -396,6 +397,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["design_name"],
       },
     },
+    {
+      name: "generate_motion_snippet",
+      description: "Generate a ready-to-paste anime.js v4 animation snippet for a given motion category and design style. Returns CDN link, code snippet, usage hint, and reduced-motion note. Categories: entrance, micro, stagger, scroll, loader, transition, counter, typewriter. All snippets include prefers-reduced-motion guards.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: ["entrance", "micro", "stagger", "scroll", "loader", "transition", "counter", "typewriter"],
+            description: "Animation category: entrance=page load, micro=button/chip interactions, stagger=list/grid reveal, scroll=IntersectionObserver-triggered, loader=spinner, transition=page transitions, counter=number counters, typewriter=text reveal",
+          },
+          style: {
+            type: "string",
+            description: "Design system (e.g. glass, neo-brutalism, claymorphism, material, minimal, etc.). Adjusts easing and duration to match the system's motion character.",
+          },
+        },
+        required: ["category", "style"],
+      },
+    },
   ],
 }));
 
@@ -672,6 +692,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           { l: accent_l, c: accent_c, h: accent_h },
           font_display, font_body, font_mono
         );
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      case "generate_motion_snippet": {
+        const { category, style } = args as { category: string; style: string };
+        if (!MOTION_CATEGORIES.includes(category as MotionCategory)) {
+          throw new Error(`Unknown category: ${category}. Available: ${MOTION_CATEGORIES.join(", ")}`);
+        }
+        const result = generateMotionSnippet(category as MotionCategory, style);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 

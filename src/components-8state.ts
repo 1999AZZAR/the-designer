@@ -136,14 +136,14 @@ export function generate8StateWrapperHtml(kind: ComponentKind): string {
     .demo-row { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--color-border); }
     .demo-label { width: 100px; font-size: 0.875rem; color: var(--color-text-2); flex-shrink: 0; }
     .demo-component { flex: 1; }
-    .btn { padding: 8px 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-accent); color: white; font-size: 0.875rem; cursor: pointer; transition: all 150ms ease; }
+    .btn { padding: 8px 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-accent); color: white; font-size: 0.875rem; cursor: pointer; transition: background 150ms ease; }
     .input, .select { width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 0.875rem; background: white; color: var(--color-text); }
     .input-label, .select-label { display: block; font-size: 0.75rem; color: var(--color-text-2); margin-bottom: 4px; }
     .select { cursor: pointer; }
     .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .toggle-input { width: 18px; height: 18px; }
     .toggle-label { font-size: 0.875rem; }
-    .chip { display: inline-flex; padding: 4px 12px; border: 1px solid var(--color-border); border-radius: 999px; font-size: 0.75rem; cursor: pointer; transition: all 150ms ease; }
+    .chip { display: inline-flex; padding: 4px 12px; border: 1px solid var(--color-border); border-radius: 999px; font-size: 0.75rem; cursor: pointer; }
     ${statesCSS}
   </style>
 </head>
@@ -152,6 +152,43 @@ export function generate8StateWrapperHtml(kind: ComponentKind): string {
   <p style="margin-top:2rem;font-size:0.75rem;color:var(--color-text-2)">
     This is a development preview. Delete this file before shipping.
   </p>
+
+  <!-- anime.js v4 micro-interactions -->
+  <script src="https://cdn.jsdelivr.net/npm/animejs@4/lib/anime.iife.min.js"></script>
+  <script>
+  (function () {
+    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+    document.querySelectorAll(".btn:not([disabled])").forEach(function (btn) {
+      btn.addEventListener("pointerdown", function () {
+        anime({ targets: btn, scale: 0.93, duration: 120, easing: "easeOutQuad" });
+      });
+      btn.addEventListener("pointerup", function () {
+        anime({ targets: btn, scale: 1, duration: 280, easing: "spring(1, 80, 10, 0)" });
+      });
+      btn.addEventListener("pointerleave", function () {
+        anime({ targets: btn, scale: 1, duration: 200, easing: "easeOutQuad" });
+      });
+    });
+    document.querySelectorAll(".chip").forEach(function (chip) {
+      chip.addEventListener("pointerenter", function () {
+        anime({ targets: chip, scale: 1.07, duration: 200, easing: "spring(1, 80, 10, 0)" });
+      });
+      chip.addEventListener("pointerleave", function () {
+        anime({ targets: chip, scale: 1, duration: 180, easing: "easeOutQuad" });
+      });
+    });
+    // Stagger-reveal all demo rows on load
+    anime({
+      targets: ".demo-row",
+      opacity: [0, 1],
+      translateX: [-12, 0],
+      duration: 380,
+      delay: anime.stagger(45, { start: 60 }),
+      easing: "easeOutCubic",
+    });
+  })();
+  </script>
 </body>
 </html>`;
 }
