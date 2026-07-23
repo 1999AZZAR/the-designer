@@ -5,6 +5,8 @@
 
 A Model Context Protocol (MCP) server for production-grade UI design — design rules, anti-slop quality gates, OKLCH token generation, color palettes, 328+ brand references, **anime.js v4 motion integration**, **WCAG 2.1 accessibility auditing**, **React/Vue component output**, and **framework-agnostic CSS generation**.
 
+![Blotcat at the design pipeline: scan → evaluate → rules → tokens, 17 systems](assets/blotcat-pipeline.jpg)
+
 ## Features
 
 - **Anti-Slop Quality Gates** — 31-gate slop test + 6-axis self-critique (P-H-E-S-R-V). Rejects anything < 3.
@@ -19,6 +21,8 @@ A Model Context Protocol (MCP) server for production-grade UI design — design 
 - **Brand Design References** — 328+ real-world brands (Stripe, Vercel, Notion, Claude, Tesla, etc.).
 
 ## Tools
+
+![Blotcat balancing the full output stack — tokens.css, components, anime.js, WCAG audit — one prompt in, OKLCH out](assets/blotcat-output.jpg)
 
 ### Core Design Flow
 | Tool | Description |
@@ -176,6 +180,8 @@ skills/
 ```
 
 ## Anti-Slop Design Philosophy
+
+![Blotcat stamping the 31-gate checklist — HTML/CSS queued left, rejected crumpled right, score < 3 → revise](assets/blotcat-antislop.jpg)
 
 - **Locked tokens** — every color/font references a named CSS variable, never inline values
 - **No fabricated content** — real metrics or labeled placeholders only
