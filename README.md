@@ -3,17 +3,19 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
 
-A Model Context Protocol (MCP) server for production-grade UI design — design rules, anti-slop quality gates, OKLCH token generation, color palettes, 328+ brand references, and **anime.js v4 motion integration**.
+A Model Context Protocol (MCP) server for production-grade UI design — design rules, anti-slop quality gates, OKLCH token generation, color palettes, 328+ brand references, **anime.js v4 motion integration**, **WCAG 2.1 accessibility auditing**, **React/Vue component output**, and **framework-agnostic CSS generation**.
 
 ## Features
 
-- **Anti-Slop Quality Gates** — 31-gate slop test catches AI tells: italic headers, fake chrome, fabricated metrics, generic CTAs, hanging headers, glass-on-white, Lorem ipsum. 6-axis self-critique (P-H-E-S-R-V) rejects anything < 3.
-- **OKLCH Token System** — 16 curated themes (Specimen, Atelier, Brutal, Terminal, Midnight, Bloom, etc.) with full token sets. Genre scoping (editorial, modern-minimal, atmospheric, playful). Build custom tokens from OKLCH values.
-- **Design Rules Generator** — 17 design systems (Material, Ant, Carbon, Glass, Swiss, etc.) + 4 palettes + 5 archetypes + hybrid combos.
-- **Pre-Flight Scan** — Detect existing project context: framework, font stack, palette tokens, motion libraries before designing.
-- **Component 8-State Generator** — Standalone demo pages with all 8 interactive states (default, hover, focus, active, disabled, loading, error, success) — now animated via anime.js v4.
-- **anime.js v4 Motion System** — Style-aware animation presets baked into every generated template. Separate `generate_motion_snippet` tool for on-demand snippets (entrance, micro-interactions, stagger, scroll-trigger, loader, transitions, counters, typewriter).
-- **Color Palette Hunter** — Live trending/popular/themed palettes from Color Hunt with format conversion.
+- **Anti-Slop Quality Gates** — 31-gate slop test + 6-axis self-critique (P-H-E-S-R-V). Rejects anything < 3.
+- **OKLCH Token System** — 16 curated themes with auto dark-mode derivation (`full_css` field ships both `:root` and `@media (prefers-color-scheme: dark)` + `[data-theme="dark"]` overrides).
+- **Design Rules Generator** — 17 design systems + 4 palettes + 5 archetypes + hybrid combos.
+- **Pre-Flight Scan** — Detect existing project context: framework, font stack, palette tokens, motion libraries.
+- **Framework-Native Components** — Every component (`button`, `card`, `navbar`, `hero`, etc.) outputs HTML/Tailwind, React TSX (typed FC with prop interface), or Vue 3 SFC (script setup) via the `framework` param.
+- **CSS Output Engine** — Generate vanilla CSS, CSS Modules (Button/Card/Input with all 8 states), SCSS (variables + mixins + BEM), or a single `tokens.css` with auto dark-mode overrides.
+- **WCAG 2.1 Accessibility Audit** — 25-check static auditor: alt text, unlabeled inputs, empty buttons/links, heading order, focus-visible removal, skip links, landmark regions, viewport scale lock, and more. Returns 0-100 score + A–F grade + actionable fixes.
+- **anime.js v4 Motion System** — Style-aware animation presets baked into every template. `generate_motion_snippet` for on-demand snippets (8 categories, all reduced-motion guarded).
+- **Color Palette Hunter** — Live palettes from Color Hunt with format conversion.
 - **Brand Design References** — 328+ real-world brands (Stripe, Vercel, Notion, Claude, Tesla, etc.).
 
 ## Tools
@@ -31,24 +33,30 @@ A Model Context Protocol (MCP) server for production-grade UI design — design 
 ### Theme & Token System
 | Tool | Description |
 |------|-------------|
-| `generate_tokens` | Generate complete OKLCH token system from named theme or genre |
+| `generate_tokens` | Generate complete OKLCH token system. Returns `css` (light `:root`), **`full_css`** (light + dark `@media` + `[data-theme="dark"]` overrides), `dark_css`, `dark_tokens` |
 | `list_themes` | List all 16 themes with OKLCH values, fonts, axis metadata |
-| `build_custom_tokens` | Build custom OKLCH token system from paper/accent/font values |
+| `build_custom_tokens` | Build custom OKLCH token system from paper/accent/font values — also emits dark mode derivation |
 
 ### Quality Gates
 | Tool | Description |
 |------|-------------|
-| `anti_pattern_check` | Run 31-gate slop test on HTML/CSS — italic headers, fake chrome, fabricated metrics, section tags, hanging headers, glass-on-white, more |
-| `self_critique` | Score output on 6 quality axes (Philosophy, Hierarchy, Execution, Specificity, Restraint, Variety) — anything < 3 triggers revision |
+| `anti_pattern_check` | Run 31-gate slop test on HTML/CSS |
+| `self_critique` | Score output on 6 quality axes (P-H-E-S-R-V) — anything < 3 triggers revision |
+| **`audit_accessibility`** | **25-check WCAG 2.1 static auditor** — alt text, unlabeled inputs/selects/textareas, empty buttons/links, heading order, focus-visible removal, skip links, landmark regions, viewport scale lock, and more. Returns 0–100 score, A–F grade, per-severity counts, fix instructions, and passed-check list |
 
 ### Component & Template
 | Tool | Description |
 |------|-------------|
-| `generate_template` | Full HTML starter page for style + palette + archetype — **ships with anime.js v4 entrance + micro animations** |
-| `get_component` | Production-ready component snippet (button, card, nav, hero, etc.) |
-| `generate_8state_component` | Standalone HTML preview with all 8 interactive states — **animated with anime.js spring physics** |
+| `generate_template` | Full HTML starter page — **ships with anime.js v4 animations** |
+| **`get_component`** | Production-ready component (button, card, navbar, hero, form-input, badge, modal, sidebar, table, footer, chart). **New `framework` param**: `html` (default) \| `react` (TypeScript FC + typed props) \| `vue` (SFC with script setup) |
+| `generate_8state_component` | Standalone HTML preview with all 8 interactive states — animated via anime.js spring physics |
 | `generate_palette_variants` | Light/dark/high-contrast variants from hex colors |
 | `export_project` | Full project scaffold (config + HTML + components) |
+
+### CSS Output
+| Tool | Description |
+|------|-------------|
+| **`generate_css_output`** | **Framework-agnostic CSS generation** from style + palette. Formats: `vanilla` (tokens.css + base.css + components.css) \| `css-modules` (Button/Card/Input .module.css with all 8 states) \| `scss` (_tokens + _mixins + _components + main.scss) \| `css-variables-only` (tokens.css with auto dark mode). Returns named files array ready to save. |
 
 ### Motion (anime.js v4)
 | Tool | Description |
@@ -145,17 +153,20 @@ npx @modelcontextprotocol/inspector node dist/index.js
 
 ```
 src/
-  index.ts              # MCP server entry, tool routing (24 tools)
+  index.ts              # MCP server entry, tool routing (27 tools)
   rules.ts              # 17 design systems, palettes, archetypes, hybrids
   anti-patterns.ts      # 31-gate slop test + 6-axis self-critique
-  tokens.ts             # 16 curated themes, OKLCH token generation, genre detection
-  preflight.ts          # Project context scanner (framework, fonts, palette, motion)
+  a11y-audit.ts         # 25-check WCAG 2.1 accessibility auditor (no deps, regex-only)
+  tokens.ts             # 16 curated themes, OKLCH token generation, dark mode derivation
+  css-output.ts         # vanilla CSS / CSS Modules / SCSS / css-variables-only generator
   anime-motion.ts       # anime.js v4 integration — style-aware presets, CDN helper, snippet generator
+  components.ts         # Component library — HTML/React TSX/Vue 3 SFC output
   components-8state.ts  # 8-state component demo generator (anime.js micro-interactions)
+  preflight.ts          # Project context scanner (framework, fonts, palette, motion)
   evaluate.ts           # Style scoring engine
   palette.ts            # Color Hunt palette fetcher
   palette-convert.ts    # Format converter
-  components.ts         # Component snippet library
+  palette-variants.ts   # Light/dark/high-contrast variant generator
   templates.ts          # HTML template generator (anime.js baked in)
   tailwind-config.ts    # Tailwind config generator
   export.ts             # Project scaffold exporter

@@ -2,6 +2,9 @@ export type ComponentType =
   | "button" | "card" | "navbar" | "hero" | "form-input"
   | "badge" | "modal" | "sidebar" | "table" | "footer" | "chart";
 
+export type OutputFramework = 'html' | 'react' | 'vue';
+export const OUTPUT_FRAMEWORKS: OutputFramework[] = ['html', 'react', 'vue'];
+
 export const COMPONENT_TYPES: ComponentType[] = [
   "button", "card", "navbar", "hero", "form-input",
   "badge", "modal", "sidebar", "table", "footer", "chart",
@@ -363,19 +366,253 @@ function chartComponent(style: string): string {
 </script>`;
 }
 
-export function getComponent(type: ComponentType, style: string): string {
+// ---------------------------------------------------------------------------
+// Framework helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert an HTML string to JSX-compatible syntax:
+ * - Rename HTML attributes to their JSX equivalents
+ * - Self-close void elements
+ * - Convert HTML comments to JSX expression comments
+ */
+export function htmlToJSX(html: string): string {
+  return html
+    // Attribute renames (order matters — longest/most-specific first)
+    .replace(/\bautocomplete=/g, 'autoComplete=')
+    .replace(/\bmaxlength=/g, 'maxLength=')
+    .replace(/\btabindex=/g, 'tabIndex=')
+    .replace(/\bclass=/g, 'className=')
+    .replace(/\bfor=/g, 'htmlFor=')
+    .replace(/\breadonly\b/g, 'readOnly')
+    // Self-close void elements that are not already self-closed
+    .replace(/<(input|img|br|hr|meta|link)(\b[^>]*?)(?<!\/)>/g, '<$1$2 />')
+    // HTML comments → JSX expression comments
+    .replace(/<!--(.*?)-->/gs, '{/* $1*/}');
+}
+
+/** Capitalise first character of a string. */
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Per-component prop interface bodies for React wrappers. */
+const REACT_PROP_INTERFACES: Record<string, string> = {
+  Button: `  className?: string;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  disabled?: boolean;
+  children?: React.ReactNode;
+  onClick?: () => void;`,
+  Card: `  className?: string;
+  title?: string;
+  description?: string;
+  children?: React.ReactNode;`,
+  Navbar: `  className?: string;
+  brand?: string;
+  links?: Array<{ label: string; href: string }>;
+  ctaLabel?: string;`,
+  Hero: `  className?: string;
+  heading?: string;
+  subheading?: string;
+  ctaLabel?: string;
+  secondaryLabel?: string;`,
+  FormInput: `  className?: string;
+  label?: string;
+  placeholder?: string;
+  error?: string;
+  type?: string;`,
+  Badge: `  className?: string;
+  label?: string;
+  variant?: 'success' | 'warning' | 'error' | 'info';`,
+  Modal: `  className?: string;
+  title?: string;
+  description?: string;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  isOpen?: boolean;`,
+  Sidebar: `  className?: string;
+  activeItem?: string;
+  items?: string[];`,
+  Table: `  className?: string;`,
+  Footer: `  className?: string;`,
+  Chart: `  className?: string;`,
+};
+
+/** Per-component Vue prop definitions for SFC wrappers. */
+const VUE_PROP_DEFS: Record<string, { props: string; defaults: string }> = {
+  Button: {
+    props: `  className?: string;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  disabled?: boolean;`,
+    defaults: `className: '',
+    variant: 'primary',
+    disabled: false`,
+  },
+  Card: {
+    props: `  className?: string;
+  title?: string;
+  description?: string;`,
+    defaults: `className: '',
+    title: 'Card Title',
+    description: ''`,
+  },
+  Navbar: {
+    props: `  className?: string;
+  brand?: string;
+  ctaLabel?: string;`,
+    defaults: `className: '',
+    brand: 'Brand',
+    ctaLabel: 'Get Started'`,
+  },
+  Hero: {
+    props: `  className?: string;
+  heading?: string;
+  subheading?: string;
+  ctaLabel?: string;
+  secondaryLabel?: string;`,
+    defaults: `className: '',
+    heading: 'Build something great',
+    subheading: 'Ship faster with a design system that scales.',
+    ctaLabel: 'Get Started',
+    secondaryLabel: 'Documentation'`,
+  },
+  FormInput: {
+    props: `  className?: string;
+  label?: string;
+  placeholder?: string;
+  error?: string;
+  type?: string;`,
+    defaults: `className: '',
+    label: '',
+    placeholder: '',
+    error: '',
+    type: 'text'`,
+  },
+  Badge: {
+    props: `  className?: string;
+  label?: string;
+  variant?: 'success' | 'warning' | 'error' | 'info';`,
+    defaults: `className: '',
+    label: 'Badge',
+    variant: 'info'`,
+  },
+  Modal: {
+    props: `  className?: string;
+  title?: string;
+  description?: string;
+  isOpen?: boolean;`,
+    defaults: `className: '',
+    title: 'Confirm Action',
+    description: 'Are you sure you want to proceed?',
+    isOpen: true`,
+  },
+  Sidebar: {
+    props: `  className?: string;
+  activeItem?: string;
+  items?: string[];`,
+    defaults: `className: '',
+    activeItem: 'Dashboard',
+    items: () => ['Dashboard', 'Analytics', 'Customers', 'Products', 'Settings']`,
+  },
+  Table: { props: `  className?: string;`, defaults: `className: ''` },
+  Footer: { props: `  className?: string;`, defaults: `className: ''` },
+  Chart: { props: `  className?: string;`, defaults: `className: ''` },
+};
+
+/**
+ * Wrap JSX markup in a full React functional component with typed props.
+ */
+export function wrapReact(componentName: string, jsx: string, _props?: string): string {
+  const propsBody = REACT_PROP_INTERFACES[componentName] ??
+    `  className?: string;`;
+
+  // Indent every line of the JSX by 6 spaces (inside the return fragment)
+  const indentedJsx = jsx
+    .split('\n')
+    .map((line) => `      ${line}`)
+    .join('\n');
+
+  return `import React from 'react';
+
+interface ${componentName}Props {
+${propsBody}
+}
+
+export const ${componentName}: React.FC<${componentName}Props> = ({ className }) => {
+  return (
+    <>
+${indentedJsx}
+    </>
+  );
+};
+
+export default ${componentName};
+`;
+}
+
+/**
+ * Wrap HTML markup in a Vue 3 SFC with typed props and Tailwind style note.
+ */
+export function wrapVue(componentName: string, html: string, _props?: string): string {
+  const vueDef = VUE_PROP_DEFS[componentName] ?? {
+    props: `  className?: string;`,
+    defaults: `className: ''`,
+  };
+
+  return `<template>
+${html}
+</template>
+
+<script setup lang="ts">
+interface Props {
+${vueDef.props}
+}
+const props = withDefaults(defineProps<Props>(), {
+  ${vueDef.defaults},
+});
+</script>
+
+<style scoped>
+/* Style note: uses Tailwind CSS classes */
+</style>
+`;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export function getComponent(
+  type: ComponentType,
+  style: string,
+  framework: OutputFramework = 'html'
+): string {
+  let html: string;
   switch (type) {
-    case "button": return buttonComponent(style);
-    case "card": return cardComponent(style);
-    case "navbar": return navbarComponent(style);
-    case "hero": return heroComponent(style);
-    case "form-input": return formInputComponent(style);
-    case "badge": return badgeComponent(style);
-    case "modal": return modalComponent(style);
-    case "sidebar": return sidebarComponent(style);
-    case "table": return tableComponent(style);
-    case "footer": return footerComponent(style);
-    case "chart": return chartComponent(style);
-    default: return `<!-- Unknown component: ${type} -->`;
+    case "button":     html = buttonComponent(style);    break;
+    case "card":       html = cardComponent(style);      break;
+    case "navbar":     html = navbarComponent(style);    break;
+    case "hero":       html = heroComponent(style);      break;
+    case "form-input": html = formInputComponent(style); break;
+    case "badge":      html = badgeComponent(style);     break;
+    case "modal":      html = modalComponent(style);     break;
+    case "sidebar":    html = sidebarComponent(style);   break;
+    case "table":      html = tableComponent(style);     break;
+    case "footer":     html = footerComponent(style);    break;
+    case "chart":      html = chartComponent(style);     break;
+    default:           html = `<!-- Unknown component: ${type} -->`;
   }
+
+  if (framework === 'html') return html;
+
+  // Derive a PascalCase component name from the type (e.g. "form-input" → "FormInput")
+  const name = type
+    .split('-')
+    .map(capitalize)
+    .join('');
+
+  if (framework === 'react') return wrapReact(name, htmlToJSX(html));
+  if (framework === 'vue')   return wrapVue(name, html);
+
+  return html;
 }

@@ -272,10 +272,117 @@ function tokensToCSS(tokens: TokenSet, theme: TokenTheme): string {
   return lines.join("\n");
 }
 
+/** Derive a dark-mode (or light-mode) counterpart token set from a given theme.
+ *  Only color tokens are modified; fonts, spacing, text sizes, easings,
+ *  durations, and radii are copied as-is from the light token set. */
+export function deriveDarkTokens(theme: TokenTheme): TokenSet {
+  const { paper, accent } = theme;
+  let darkColors: Record<string, string>;
+
+  if (theme.paperBand !== "dark") {
+    // Light → derive dark
+    const darkPaperL = 8;
+    const darkPaperC = Math.max(paper.c - 1, 0);
+    const darkPaperH = paper.h;
+    const darkAccentL = Math.min(accent.l + 10, 95);
+    const darkTextL = 95;
+    const darkTextL2 = 80;
+    const darkPaper2L = 12;
+    const darkPaper3L = 18;
+    const darkBorderL = 25;
+
+    darkColors = {
+      "--color-paper":   oklchStr(darkPaperL, darkPaperC, darkPaperH),
+      "--color-paper-2": oklchStr(darkPaper2L, darkPaperC + 2, darkPaperH),
+      "--color-paper-3": oklchStr(darkPaper3L, darkPaperC + 1, darkPaperH),
+      "--color-text":    oklchStr(darkTextL, darkPaperC + 3, darkPaperH),
+      "--color-text-2":  oklchStr(darkTextL2, darkPaperC + 5, darkPaperH),
+      "--color-accent":  oklchStr(darkAccentL, accent.c, accent.h),
+      "--color-accent-2":oklchStr(Math.min(darkAccentL + 10, 99), Math.max(accent.c - 5, 0), accent.h),
+      "--color-border":  oklchStr(darkBorderL, darkPaperC, darkPaperH),
+      "--color-focus":   oklchStr(darkAccentL, accent.c + 10, accent.h),
+    };
+  } else {
+    // Dark → derive light
+    const lightPaperL = 97;
+    const lightPaperC = paper.c;
+    const lightPaperH = paper.h;
+    const lightTextL = 15;
+    const lightTextL2 = 35;
+    const lightPaper2L = Math.min(lightPaperL - 6, 97);
+    const lightPaper3L = Math.min(lightPaperL - 12, 97);
+    const lightBorderL = 85;
+
+    darkColors = {
+      "--color-paper":   oklchStr(lightPaperL, lightPaperC, lightPaperH),
+      "--color-paper-2": oklchStr(lightPaper2L, lightPaperC + 2, lightPaperH),
+      "--color-paper-3": oklchStr(lightPaper3L, lightPaperC + 1, lightPaperH),
+      "--color-text":    oklchStr(lightTextL, lightPaperC + 3, lightPaperH),
+      "--color-text-2":  oklchStr(lightTextL2, lightPaperC + 5, lightPaperH),
+      "--color-accent":  oklchStr(accent.l, accent.c, accent.h),
+      "--color-accent-2":oklchStr(Math.min(accent.l + 10, 99), Math.max(accent.c - 5, 0), accent.h),
+      "--color-border":  oklchStr(lightBorderL, lightPaperC, lightPaperH),
+      "--color-focus":   oklchStr(accent.l, accent.c + 10, accent.h),
+    };
+  }
+
+  // Build a placeholder light token set just to grab the non-color sections
+  const light = generateThemeTokens(theme);
+
+  return {
+    colors: darkColors,
+    fonts: light.fonts,
+    spacing: light.spacing,
+    text: light.text,
+    easings: light.easings,
+    durations: light.durations,
+    radii: light.radii,
+  };
+}
+
+/** Returns just the color override lines (no selector wrapper). */
+function colorOverrideLines(darkTokens: TokenSet): string[] {
+  return Object.entries(darkTokens.colors).map(([key, val]) => `    ${key}: ${val};`);
+}
+
+/** Returns the @media prefers-color-scheme block + [data-theme="dark"] block.
+ *  Standalone helper — callers can use this independently of the full CSS. */
+export function darkTokensToCSS(darkTokens: TokenSet, theme: TokenTheme): string {
+  const overrides = colorOverrideLines(darkTokens).join("\n");
+  const label = theme.paperBand !== "dark" ? "dark" : "light";
+  const mediaQuery = theme.paperBand !== "dark"
+    ? "(prefers-color-scheme: dark)"
+    : "(prefers-color-scheme: light)";
+  const lines: string[] = [];
+  lines.push(`@media ${mediaQuery} {`);
+  lines.push(`  :root {`);
+  lines.push(overrides);
+  lines.push(`  }`);
+  lines.push(`}\n`);
+  lines.push(`[data-theme="${label}"] {`);
+  lines.push(overrides);
+  lines.push(`}\n`);
+  return lines.join("\n");
+}
+
+/** Full CSS: light :root block + dark @media + [data-theme] override. */
+export function tokensToFullCSS(
+  tokens: TokenSet,
+  darkTokens: TokenSet,
+  theme: TokenTheme,
+): string {
+  const light = tokensToCSS(tokens, theme);
+  const dark = darkTokensToCSS(darkTokens, theme);
+  return light + dark;
+}
+
 export interface GenerateTokensResult {
   theme: TokenTheme;
   tokens: TokenSet;
-  css: string;
+  css: string;           // light :root block only (backwards compat)
+  full_css: string;      // light :root + dark @media + [data-theme] block
+  dark_css: string;      // just the @media + [data-theme] block
+  dark_tokens: TokenSet; // derived dark-mode token values
   tailwindV4Theme: string;
 }
 
@@ -319,7 +426,11 @@ export function generateTokens(
   }
   twLines.push("}");
 
-  return { theme, tokens, css, tailwindV4Theme: twLines.join("\n") };
+  const dark_tokens = deriveDarkTokens(theme);
+  const dark_css = darkTokensToCSS(dark_tokens, theme);
+  const full_css = css + dark_css;
+
+  return { theme, tokens, css, full_css, dark_css, dark_tokens, tailwindV4Theme: twLines.join("\n") };
 }
 
 export function buildCustomTokens(
@@ -355,5 +466,9 @@ export function buildCustomTokens(
   }
   twLines.push("}");
 
-  return { theme, tokens, css, tailwindV4Theme: twLines.join("\n") };
+  const dark_tokens = deriveDarkTokens(theme);
+  const dark_css = darkTokensToCSS(dark_tokens, theme);
+  const full_css = css + dark_css;
+
+  return { theme, tokens, css, full_css, dark_css, dark_tokens, tailwindV4Theme: twLines.join("\n") };
 }

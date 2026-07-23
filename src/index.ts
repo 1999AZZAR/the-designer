@@ -15,7 +15,7 @@ import { fetchPalettes } from "./palette.js";
 import { convertPalette, type ConvertTarget } from "./palette-convert.js";
 import { generateTailwindConfig } from "./tailwind-config.js";
 import { generateTemplate } from "./templates.js";
-import { getComponent, COMPONENT_TYPES } from "./components.js";
+import { getComponent as _getComponent, COMPONENT_TYPES, OUTPUT_FRAMEWORKS, type OutputFramework } from "./components.js";
 import { generatePaletteVariants } from "./palette-variants.js";
 import { exportProject } from "./export.js";
 import { evaluateStyle } from "./evaluate.js";
@@ -24,6 +24,9 @@ import { runSlopTest, selfCritique, type SlopTestResult, type QualityScore } fro
 import { generateTokens, buildCustomTokens, listThemes, listGenres, detectGenre, type GenerateTokensResult } from "./tokens.js";
 import { generate8StateWrapperHtml, type ComponentKind } from "./components-8state.js";
 import { generateMotionSnippet, MOTION_CATEGORIES, type MotionCategory } from "./anime-motion.js";
+import { auditA11y } from "./a11y-audit.js";
+import { generateCSSOutput, type CSSOutputFormat } from "./css-output.js";
+
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MCP_ROOT = join(__dirname, "..");
@@ -212,14 +215,39 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "get_component",
-      description: "Get a production-ready HTML/Tailwind component snippet styled for a specific design system. IMPORTANT: Run evaluate_style first to confirm the style choice. Components: button, card, navbar, hero, form-input, badge, modal, sidebar, table, footer, chart.",
+      description: "Get a production-ready component snippet styled for a specific design system. Supports HTML (Tailwind), React (TSX functional component with typed props), and Vue 3 (SFC with script setup). IMPORTANT: Run evaluate_style first to confirm the style choice.",
       inputSchema: {
         type: "object",
         properties: {
           component: { type: "string", enum: ["button", "card", "navbar", "hero", "form-input", "badge", "modal", "sidebar", "table", "footer", "chart"], description: "Component type" },
           style: { type: "string", description: "Design system: ant|carbon|fluent|atlassian|apple-hig|polaris|material|minimal|glass|neumorphism|neo-brutalism|claymorphism|skeuomorphism|swiss|swiss-archival|m3-pastel|neo-m3" },
+          framework: { type: "string", enum: ["html", "react", "vue"], description: "Output framework (default: html). 'react' returns a TypeScript FC with typed props. 'vue' returns a Vue 3 SFC with script setup." },
         },
         required: ["component", "style"],
+      },
+    },
+    {
+      name: "audit_accessibility",
+      description: "Run a 25-check WCAG 2.1 accessibility audit on HTML content. Covers: missing alt text, unlabeled inputs/selects/textareas, empty buttons/links, missing lang/title, heading order violations, focus-visible removal, positive tabindex, skip links, viewport scale lock, landmark regions, and more. Returns a 0-100 score, A-F grade, per-severity issue counts, actionable fix instructions per issue, and a list of passed checks.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          html: { type: "string", description: "Full HTML string to audit" },
+        },
+        required: ["html"],
+      },
+    },
+    {
+      name: "generate_css_output",
+      description: "Generate framework-agnostic CSS output from a design style and palette. Supports vanilla CSS (tokens.css + base.css + components.css), CSS Modules (Button/Card/Input .module.css with all 8 states), SCSS (variables + mixins + BEM components), and css-variables-only (tokens with auto dark mode @media and [data-theme='dark']). Returns an array of named files ready to save to disk.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          style: { type: "string", description: "Design system slug (e.g. glass, neo-brutalism, minimal, material)" },
+          palette: { type: "string", enum: ["pastel", "dark", "vibrant", "mono"], description: "Color palette" },
+          format: { type: "string", enum: ["vanilla", "css-modules", "scss", "css-variables-only"], description: "Output format" },
+        },
+        required: ["style", "palette", "format"],
       },
     },
     {
@@ -605,11 +633,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_component": {
-        const { component, style } = args as { component: string; style: string };
+        const { component, style, framework = "html" } = args as { component: string; style: string; framework?: string };
         if (!COMPONENT_TYPES.includes(component as any)) throw new Error(`Unknown component: ${component}. Available: ${COMPONENT_TYPES.join(", ")}`);
         if (!(style in STYLES)) throw new Error(`Unknown style: ${style}. Available: ${Object.keys(STYLES).join(", ")}`);
-        const html = getComponent(component as any, style);
-        return { content: [{ type: "text", text: html }] };
+        if (!OUTPUT_FRAMEWORKS.includes(framework as OutputFramework)) throw new Error(`Unknown framework: ${framework}. Available: ${OUTPUT_FRAMEWORKS.join(", ")}`);
+        const output = _getComponent(component as any, style, framework as OutputFramework);
+        return { content: [{ type: "text", text: output }] };
+      }
+
+      case "audit_accessibility": {
+        const { html } = args as { html: string };
+        if (!html || typeof html !== "string") throw new Error("html is required and must be a string");
+        const result = auditA11y(html);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      case "generate_css_output": {
+        const CSS_FORMATS: CSSOutputFormat[] = ["vanilla", "css-modules", "scss", "css-variables-only"];
+        const { style, palette, format } = args as { style: string; palette: string; format: string };
+        if (!CSS_FORMATS.includes(format as CSSOutputFormat)) throw new Error(`Unknown format: ${format}. Available: ${CSS_FORMATS.join(", ")}`);
+        const result = generateCSSOutput(style, palette, format as CSSOutputFormat);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       case "generate_template": {
